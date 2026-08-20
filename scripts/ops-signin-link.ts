@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { issueLoginTokens, TOKEN_TTL_MS } from '../src/modules/auth/tokens';
+import { issueLoginTokens, MAX_TTL_MS, TOKEN_TTL_MS } from '../src/modules/auth/tokens';
 
 /**
- * `pnpm ops:signin-link --email=someone@company.com`
+ * `pnpm ops:signin-link --email=someone@company.com [--hours=12]`
  *
  * Mints a one-time sign-in link out of band and prints it, for installations
  * with no mail transport configured.
@@ -20,6 +20,11 @@ import { issueLoginTokens, TOKEN_TTL_MS } from '../src/modules/auth/tokens';
  * which is the point here, and also why the six-digit code is printed with
  * it. An unbound link asks for the code on arrival; that second factor is
  * what stops a leaked URL from being enough on its own.
+ *
+ * --hours extends the ten-minute default up to a day, so links can be
+ * prepared ahead of handing them out. That is only defensible because the
+ * code is still demanded: the URL by itself admits nobody, whatever its age.
+ * Recipients need both halves, and both should travel privately.
  */
 const prisma = new PrismaClient();
 
@@ -29,6 +34,14 @@ function arg(name: string): string | undefined {
 
 async function main() {
   const email = arg('email')?.trim().toLowerCase();
+  const hoursRaw = arg('hours');
+  const hours = hoursRaw === undefined ? null : Number(hoursRaw);
+
+  if (hours !== null && (!Number.isFinite(hours) || hours <= 0 || hours * 3_600_000 > MAX_TTL_MS)) {
+    console.error(`--hours must be a positive number up to ${MAX_TTL_MS / 3_600_000}.`);
+    process.exit(1);
+  }
+  const ttlMs = hours === null ? TOKEN_TTL_MS : hours * 3_600_000;
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     console.error('Usage: pnpm ops:signin-link --email=<address>');
     process.exit(1);
@@ -62,7 +75,7 @@ async function main() {
 
   // No binding: the link has to work in whatever browser the recipient opens
   // it in, since it did not start there.
-  const tokens = await issueLoginTokens(email, null, { issuedBy: 'ops:signin-link' });
+  const tokens = await issueLoginTokens(email, null, { issuedBy: 'ops:signin-link' }, ttlMs);
   const url = `${appUrl}/auth/verify?token=${encodeURIComponent(tokens.linkToken)}`;
 
   await prisma.auditLog.create({
@@ -70,11 +83,12 @@ async function main() {
       action: 'ops.signin_link',
       entityType: 'VerificationToken',
       entityId: tokens.id,
-      diff: { email, tenant: mapped.tenant.slug },
+      diff: { email, tenant: mapped.tenant.slug, ttlMs },
     },
   });
 
-  const minutes = Math.round(TOKEN_TTL_MS / 60000);
+  const validFor =
+    ttlMs >= 3_600_000 ? `${Math.round(ttlMs / 3_600_000)} hour(s)` : `${Math.round(ttlMs / 60_000)} minutes`;
 
   console.log('');
   console.log(`  Sign-in link for ${email} (tenant: ${mapped.tenant.slug})`);
@@ -83,7 +97,8 @@ async function main() {
   console.log(`  ${url}`);
   console.log('');
   console.log(`  Code if asked:  ${tokens.code}`);
-  console.log(`  Valid for:      ${minutes} minutes, one use`);
+  console.log(`  Valid for:      ${validFor}, one use (until ${tokens.expiresAt.toISOString()})`);
+  console.log('  Both halves are needed — the link alone will not sign anyone in.');
   console.log('');
   console.log('  Treat this like a password. Issuing a new link cancels this one.');
   console.log('');

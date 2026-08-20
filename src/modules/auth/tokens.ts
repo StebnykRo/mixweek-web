@@ -24,14 +24,26 @@ export function bindingHash(bindingValue: string): string {
   return hmac(`binding:${bindingValue}`);
 }
 
+/**
+ * Longest life an out-of-band link may be given (scripts/ops-signin-link.ts).
+ * Such a link carries no browser binding, so the six-digit code is always
+ * demanded on arrival and the URL alone admits nobody — which is what makes a
+ * longer window tolerable. Emailed links keep the ten-minute default.
+ */
+export const MAX_TTL_MS = 24 * 60 * 60 * 1000;
+
 export async function issueLoginTokens(
   identifier: string,
   binding: string | null,
   metadata?: Record<string, unknown>,
+  ttlMs: number = TOKEN_TTL_MS,
 ): Promise<IssuedToken> {
+  if (!Number.isFinite(ttlMs) || ttlMs <= 0 || ttlMs > MAX_TTL_MS) {
+    throw new Error(`ttlMs must be between 1 and ${MAX_TTL_MS}`);
+  }
   const linkToken = randomToken(32);
   const code = randomNumericCode(6);
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+  const expiresAt = new Date(Date.now() + ttlMs);
   const hash = binding ? bindingHash(binding) : null;
 
   // Any pending token for this identifier is burned: one live challenge at a time.

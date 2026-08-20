@@ -15,6 +15,14 @@ import { env } from '../env';
 
 const ALGO = 'aes-256-gcm';
 const IV_BYTES = 12;
+/**
+ * The full GCM tag. Passed to createDecipheriv explicitly: without it Node
+ * accepts tags of 4, 8, 12, 13, 14, 15 or 16 bytes, so a truncated tag would
+ * verify against a correspondingly weaker check. Short GCM tags are forgeable
+ * with far less work than the full 128 bits implies, and the attacker chooses
+ * the length here because it comes from the stored value.
+ */
+const TAG_BYTES = 16;
 
 /**
  * Prisma's Bytes columns are written as Uint8Array backed by a plain
@@ -62,9 +70,10 @@ function wrapDek(dek: Buffer, kek: Buffer): Buffer {
 
 function unwrapDek(wrapped: Buffer, kek: Buffer): Buffer {
   const iv = wrapped.subarray(0, IV_BYTES);
-  const tag = wrapped.subarray(IV_BYTES, IV_BYTES + 16);
-  const body = wrapped.subarray(IV_BYTES + 16);
-  const decipher = createDecipheriv(ALGO, kek, iv);
+  const tag = wrapped.subarray(IV_BYTES, IV_BYTES + TAG_BYTES);
+  const body = wrapped.subarray(IV_BYTES + TAG_BYTES);
+  if (tag.length !== TAG_BYTES) throw new Error('wrapped key has a truncated authentication tag');
+  const decipher = createDecipheriv(ALGO, kek, iv, { authTagLength: TAG_BYTES });
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(body), decipher.final()]);
 }
@@ -97,9 +106,11 @@ export function open(sealed: SealedInput, aad: Buffer): string {
     let dek: Buffer | null = null;
     try {
       dek = unwrapDek(buf(sealed.wrappedKey), kek);
-      const decipher = createDecipheriv(ALGO, dek, buf(sealed.iv));
+      const tag = buf(sealed.authTag);
+      if (tag.length !== TAG_BYTES) throw new Error('sealed value has a truncated authentication tag');
+      const decipher = createDecipheriv(ALGO, dek, buf(sealed.iv), { authTagLength: TAG_BYTES });
       decipher.setAAD(aad);
-      decipher.setAuthTag(buf(sealed.authTag));
+      decipher.setAuthTag(tag);
       const out = Buffer.concat([decipher.update(buf(sealed.ciphertext)), decipher.final()]);
       const value = out.toString('utf8');
       out.fill(0);

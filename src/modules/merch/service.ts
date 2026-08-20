@@ -1,5 +1,4 @@
-import { globalDb } from '@/lib/db/client';
-import { withTenant } from '@/lib/db/tenant-client';
+import { withTenant, type TenantDb } from '@/lib/db/tenant-client';
 import { AppError, notFound } from '@/lib/errors';
 import { auditLog } from '@/lib/audit';
 import { randomBase32Code, sha256 } from '@/lib/crypto/hash';
@@ -134,7 +133,7 @@ export async function reserveOrder(input: ReserveInput): Promise<ReserveResult> 
       }
     }
 
-    const sequence = await nextOrderNumber();
+    const sequence = await nextOrderNumber(db);
     const number = `MW-${String(sequence).padStart(4, '0')}`;
     const pickupCode = randomBase32Code(8);
 
@@ -179,11 +178,20 @@ export async function reserveOrder(input: ReserveInput): Promise<ReserveResult> 
 
 /**
  * A database sequence, so two concurrent reservations cannot take one number.
- * The sequence is global rather than tenant-scoped, which is why it uses the
- * global client (docs/02 §3).
+ * The sequence is global rather than tenant-scoped (docs/02 §3); nextval is
+ * exempt from transaction rollback, so a failed reservation burns a number
+ * rather than reusing one, which is the intended trade.
+ *
+ * It must run on the caller's transaction connection. Reaching for a second
+ * connection here — as this did, via globalDb — meant every in-flight
+ * reservation held one connection for its transaction and needed another for
+ * this query, while holding a FOR UPDATE lock on the variant row. Once the
+ * pool was full, transactions waited for connections held by transactions
+ * waiting for that lock, and reservations failed on maxWait: ten concurrent
+ * buyers produced four orders.
  */
-async function nextOrderNumber(): Promise<number> {
-  const rows = await globalDb.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('order_number_seq')`;
+async function nextOrderNumber(db: TenantDb): Promise<number> {
+  const rows = await db.$queryRaw<Array<{ nextval: bigint }>>`SELECT nextval('order_number_seq')`;
   return Number(rows[0]?.nextval ?? 1);
 }
 
