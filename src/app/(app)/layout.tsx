@@ -48,11 +48,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: `${base}/programme`, label: t('programme'), icon: 'programme' },
     { href: `${base}/map`, label: t('map'), icon: 'map' },
     ...(winstyleEnabled ? [{ href: `${base}/winstyle`, label: t('winstyle'), icon: 'winstyle' as const }] : []),
-    { href: '/profile', label: t('profile'), icon: 'profile' },
   ];
 
   const secondaryNav = [
     { href: '/events', label: t('events') },
+    { href: '/profile', label: t('profile') },
     { href: `${base}/my`, label: t('myProgramme') },
     { href: `${base}/style`, label: t('style') },
     { href: `${base}/travel`, label: t('travel') },
@@ -69,6 +69,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       unreadCount={unread}
       userLabel={session.user.name ?? session.user.email}
       notificationsLabel={t('notifications')}
+      moreLabel={t('more')}
     >
       {children}
     </AppShell>

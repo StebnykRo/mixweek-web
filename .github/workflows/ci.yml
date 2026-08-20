@@ -188,8 +188,8 @@ jobs:
           python3 -m pip install --quiet --disable-pip-version-check semgrep
           semgrep scan --error --quiet \
             --config p/owasp-top-ten --config p/typescript --config p/react \
+            --config p/secrets \
             --exclude node_modules --exclude .next --exclude design .
-            p/secrets
 
       - name: SBOM
         run: pnpm dlx @cyclonedx/cyclonedx-npm --output-file sbom.json || true

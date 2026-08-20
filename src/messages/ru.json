@@ -46,7 +46,8 @@
     "help": "Помощь",
     "myProgramme": "Моя программа",
     "notifications": "Уведомления",
-    "admin": "Админка"
+    "admin": "Админка",
+    "more": "Ещё"
   },
   "login": {
     "title": "Mix Week",
