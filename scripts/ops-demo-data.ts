@@ -41,6 +41,7 @@ type EventSpec = {
   capacity: number | null;
   withMerch: boolean;
   withAlbums: boolean;
+  coverUrl: string;
 };
 
 const EVENTS: EventSpec[] = [
@@ -54,6 +55,7 @@ const EVENTS: EventSpec[] = [
     capacity: 120,
     withMerch: true,
     withAlbums: false,
+    coverUrl: '/demo/cover-mix-week.png',
   },
   {
     slug: 'demo-winter-summit',
@@ -65,6 +67,7 @@ const EVENTS: EventSpec[] = [
     capacity: null,
     withMerch: false,
     withAlbums: false,
+    coverUrl: '/demo/cover-winter-summit.png',
   },
   {
     slug: 'demo-mix-week-2025',
@@ -76,6 +79,7 @@ const EVENTS: EventSpec[] = [
     capacity: 90,
     withMerch: false,
     withAlbums: true,
+    coverUrl: '/demo/cover-mix-week-2025.png',
   },
 ];
 
@@ -182,7 +186,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
     description:
       'Demo content created by ops:demo-data. Everything here is safe to edit or delete — it exists so the ' +
       'programme, map, merchandise and photo screens can be seen working before real content lands.',
-    coverUrl: '/demo/album-beach.png',
+    coverUrl: spec.coverUrl,
     startsAt: at(start, 0, 9),
     endsAt: at(start, 2, 22),
     timezone: 'Asia/Nicosia',
