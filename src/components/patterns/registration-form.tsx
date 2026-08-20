@@ -57,7 +57,9 @@ export function RegistrationForm({
   const [result, setResult] = useState<{ status: string; waitlistPosition: number | null } | null>(null);
 
   const full = capacity !== null && registeredCount >= capacity;
-  const steps = fields.length > 0 ? ['confirm', 'fields', 'consents', 'summary'] : ['confirm', 'consents', 'summary'];
+  // With no questions to ask, three screens of headings is ceremony rather
+  // than a form: confirm, consent and submit all fit on one.
+  const steps = fields.length > 0 ? ['confirm', 'fields', 'consents', 'summary'] : ['single'];
 
   async function submit() {
     setPending(true);
@@ -104,9 +106,23 @@ export function RegistrationForm({
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-xs font-bold uppercase tracking-[2px] text-ink-muted">
-        {t('step', { current: step + 1, total: steps.length })}
-      </p>
+      {steps.length > 1 ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-bold uppercase tracking-[2px] text-ink-muted">
+            {t('step', { current: step + 1, total: steps.length })}
+          </p>
+          {/* A bar rather than only a number: on a phone the count alone
+              gives no sense of how much is left. */}
+          <div className="flex gap-1.5" aria-hidden="true">
+            {steps.map((name, index) => (
+              <span
+                key={name}
+                className={`h-1.5 flex-1 rounded-full ${index <= step ? 'bg-primary-500' : 'bg-divider'}`}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {capacity !== null ? (
         <CapacityMeter
@@ -117,6 +133,14 @@ export function RegistrationForm({
             waitlist: '',
           }}
         />
+      ) : null}
+
+      {currentStep === 'single' ? (
+        <div className="flex flex-col gap-4">
+          <h2 className="font-display text-2xl">{full && waitlistEnabled ? t('joinWaitlist') : t('confirmTitle')}</h2>
+          {full && waitlistEnabled ? <p className="text-[15px] text-ink-muted">{t('waitlistExplainer')}</p> : null}
+          <CheckboxField label={t('photoConsent')} checked={photoConsent} onCheckedChange={setPhotoConsent} />
+        </div>
       ) : null}
 
       {currentStep === 'confirm' ? (
@@ -167,6 +191,16 @@ export function RegistrationForm({
         </div>
       ) : null}
 
+      {currentStep === 'fields' && missingFields(fields, answers).length > 0 ? (
+        <p className="text-sm text-ink-muted">
+          {t('stillNeeded', {
+            fields: missingFields(fields, answers)
+              .map((field) => labelFor(field, locale))
+              .join(', '),
+          })}
+        </p>
+      ) : null}
+
       <div className="flex gap-3">
         {step > 0 ? (
           <Button variant="quiet" size="lg" onClick={() => setStep(step - 1)}>
@@ -187,14 +221,23 @@ export function RegistrationForm({
   );
 }
 
+function missingFields(fields: FormFieldDef[], answers: Answers): FormFieldDef[] {
+  return fields.filter((field) => {
+    if (!field.required) return false;
+    const value = answers[field.key];
+    if (value === undefined || value === '') return true;
+    if (Array.isArray(value)) return value.length === 0;
+    // A required consent must be ticked. A required yes/no question is
+    // answered by "no" just as much as by "yes" — treating false as blank
+    // made such a question impossible to get past.
+    if (field.type === 'consent') return value === false;
+    return false;
+  });
+}
+
 function canAdvance(step: string, fields: FormFieldDef[], answers: Answers): boolean {
   if (step !== 'fields') return true;
-  return fields
-    .filter((field) => field.required)
-    .every((field) => {
-      const value = answers[field.key];
-      return value !== undefined && value !== '' && value !== false;
-    });
+  return missingFields(fields, answers).length === 0;
 }
 
 function labelFor(field: FormFieldDef, locale: string): string {

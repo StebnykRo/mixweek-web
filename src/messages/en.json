@@ -191,7 +191,8 @@
     "cancel": "Cancel my registration",
     "cancelConfirm": "Cancel your registration? Your place goes to the next person on the list.",
     "photoConsent": "I agree that photos taken at the event may be published internally",
-    "closed": "Registration is closed for this event."
+    "closed": "Registration is closed for this event.",
+    "stillNeeded": "Still needed: {fields}"
   },
   "map": {
     "title": "Map",
@@ -248,7 +249,9 @@
     "checklist": "Packing checklist",
     "checklistDone": "{done} of {total} packed"
   },
-  "travel": { "title": "Travel" },
+  "travel": {
+    "title": "Travel"
+  },
   "help": {
     "title": "Help",
     "urgent": "Urgent support, 24/7",
