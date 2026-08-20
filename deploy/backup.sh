@@ -54,7 +54,11 @@ TARGET="$BACKUP_DIR/$NAME.dump.age"
 # PIPESTATUS is checked because a pg_dump failure downstream of a working
 # age would otherwise leave a perfectly encrypted, perfectly empty backup.
 set +e
-"${COMPOSE[@]}" exec -T postgres pg_dump -U app_admin -d mixweek -Fc --no-owner |
+# PGPASSWORD is required even on the container's own socket: the cluster is
+# initialised with --auth-local=scram-sha-256, so there is no peer trust to
+# fall back on. Without it pg_dump prompts, and a timer run has no terminal.
+"${COMPOSE[@]}" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
+	pg_dump -U app_admin -d mixweek -Fc --no-owner |
 	age --recipient "$BACKUP_AGE_RECIPIENT" >"$TARGET.partial"
 STATUS=("${PIPESTATUS[@]}")
 set -e

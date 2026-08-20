@@ -51,7 +51,8 @@ log 'Stopping the application (Postgres stays up)'
 log 'Taking a safety dump of the current state'
 SAFETY="$HERE/backups/pre-restore-$(date -u +%Y%m%dT%H%M%SZ).dump.age"
 mkdir -p "$HERE/backups"
-"${COMPOSE[@]}" exec -T postgres pg_dump -U app_admin -d mixweek -Fc --no-owner |
+"${COMPOSE[@]}" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
+	pg_dump -U app_admin -d mixweek -Fc --no-owner |
 	age --recipient "${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT is empty}" >"$SAFETY" ||
 	die 'safety dump failed — refusing to restore'
 chmod 600 "$SAFETY"
@@ -61,7 +62,8 @@ log 'Restoring'
 # --clean --if-exists drops each object before recreating it; the roles are
 # left alone because --no-owner ignores ownership.
 age --decrypt --identity "$AGE_KEY" <"$ARCHIVE" |
-	"${COMPOSE[@]}" exec -T postgres pg_restore -U app_admin -d mixweek \
+	"${COMPOSE[@]}" exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres \
+		pg_restore -U app_admin -d mixweek \
 		--clean --if-exists --no-owner --single-transaction ||
 	die "restore failed — the database is unchanged (single transaction); safety dump at $SAFETY"
 
