@@ -9,10 +9,31 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Dashboard' };
 
 /** docs/10-admin.md §3.1 — the numbers an organiser checks first. */
-export default async function AdminDashboard() {
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireAdminSession();
   const events = await listAdminEvents(session.tenantId);
-  const current = events.find((event) => eventPhase(event) === 'live') ?? events[0];
+  const requested = (await searchParams).event;
+  const requestedId = Array.isArray(requested) ? requested[0] : requested;
+
+  /**
+   * Which event the dashboard is about.
+   *
+   * The list arrives newest-first, so falling back to events[0] showed the
+   * event furthest in the future rather than the next one — with a September
+   * and a December event, an organiser was shown December. Preference now runs
+   * live, then soonest upcoming, then most recent past. An explicit ?event=
+   * always wins, which is what the picker below sets.
+   */
+  const chosen = requestedId ? events.find((event) => event.id === requestedId) : undefined;
+  const live = events.find((event) => eventPhase(event) === 'live');
+  const nextUp = [...events]
+    .filter((event) => eventPhase(event) === 'upcoming')
+    .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())[0];
+  const current = chosen ?? live ?? nextUp ?? events[0];
 
   if (!current) {
     return (
@@ -53,6 +74,28 @@ export default async function AdminDashboard() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-display text-2xl">{current.title}</h1>
+        {events.length > 1 ? (
+          <nav aria-label="Choose an event" className="mt-3 flex flex-wrap gap-2">
+            {events.map((event) => {
+              const active = event.id === current.id;
+              return (
+                <Link
+                  key={event.id}
+                  href={`/admin?event=${event.id}`}
+                  aria-current={active ? 'true' : undefined}
+                  className={
+                    active
+                      ? 'rounded-pill bg-neutral-900 px-3 py-1.5 text-xs font-bold text-neutral-50'
+                      : 'rounded-pill bg-surface px-3 py-1.5 text-xs font-semibold text-ink-muted'
+                  }
+                >
+                  {event.title}
+                  <span className="ml-2 font-normal opacity-70">{eventPhase(event)}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
         <p className="text-sm text-ink-muted">
           {eventPhase(current)} · {current.status.toLowerCase()}
         </p>
