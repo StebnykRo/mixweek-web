@@ -36,5 +36,5 @@ while read -r _oldrev newrev refname; do
 	# bare repository.
 	unset GIT_DIR GIT_WORK_TREE GIT_QUARANTINE_PATH
 	cd "$WORK_TREE/deploy"
-	./deploy.sh
+	DEPLOY_REVISION="$newrev" ./deploy.sh
 done

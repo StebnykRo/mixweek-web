@@ -35,7 +35,15 @@ die() {
 
 [[ -f $ENV_FILE ]] || die "no $ENV_FILE — run install-app.sh first"
 
-REVISION=$(git -C "$REPO" rev-parse --short HEAD)
+# The working tree may have no .git of its own: the post-receive hook checks
+# files out of a bare repository elsewhere and passes the revision in.
+if [[ -n ${DEPLOY_REVISION:-} ]]; then
+	REVISION="${DEPLOY_REVISION:0:7}"
+elif REVISION=$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null); then
+	:
+else
+	REVISION=$(date -u +%Y%m%dT%H%M%SZ)
+fi
 log "Deploying $REVISION"
 
 # ── backup ─────────────────────────────────────────────────────────────
