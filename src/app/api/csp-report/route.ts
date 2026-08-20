@@ -30,11 +30,21 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const parsed = JSON.parse(raw) as { 'csp-report'?: Record<string, unknown> };
     const report = parsed['csp-report'] ?? parsed;
+    const field = (name: string, max = 200): string =>
+      String((report as Record<string, unknown>)[name] ?? '').slice(0, max);
+
+    // blocked-uri is the only field that says what was actually refused —
+    // "inline" for an inline block, or the URL otherwise. Without it a report
+    // names the rule that fired and nothing you can act on.
     logger.warn(
       {
         kind: 'csp',
-        route: String((report as Record<string, unknown>)['document-uri'] ?? '').slice(0, 200),
-        reason: String((report as Record<string, unknown>)['violated-directive'] ?? '').slice(0, 120),
+        route: field('document-uri'),
+        reason: field('violated-directive', 120),
+        blocked: field('blocked-uri'),
+        source: field('source-file'),
+        line: (report as Record<string, unknown>)['line-number'] ?? null,
+        sample: field('script-sample', 120),
       },
       'csp-violation',
     );
