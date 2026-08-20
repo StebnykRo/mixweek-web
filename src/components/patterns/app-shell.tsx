@@ -109,7 +109,12 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 pb-[calc(env(safe-area-inset-bottom)+72px)] lg:pb-8">{children}</main>
+        {/* Centred and capped on a desktop. Without this the content hugged
+            the sidebar and left a third of a 1280px window empty, which read
+            as a broken layout rather than a spacious one. */}
+        <main className="mx-auto w-full max-w-6xl flex-1 pb-[calc(env(safe-area-inset-bottom)+72px)] lg:pb-8">
+          {children}
+        </main>
 
         <nav
           aria-label="Main"
