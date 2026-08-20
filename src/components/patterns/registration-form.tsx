@@ -21,8 +21,18 @@ export type FormFieldDef = {
   maxLength?: number;
 };
 
+export type EventSummary = {
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  timezone: string;
+  city: string | null;
+  venueName: string | null;
+};
+
 export type RegistrationFormProps = {
   eventSlug: string;
+  event: EventSummary;
   fields: FormFieldDef[];
   capacity: number | null;
   registeredCount: number;
@@ -39,6 +49,7 @@ type Answers = Record<string, string | number | boolean | string[]>;
  */
 export function RegistrationForm({
   eventSlug,
+  event,
   fields,
   capacity,
   registeredCount,
@@ -139,14 +150,16 @@ export function RegistrationForm({
         <div className="flex flex-col gap-4">
           <h2 className="font-display text-2xl">{full && waitlistEnabled ? t('joinWaitlist') : t('confirmTitle')}</h2>
           {full && waitlistEnabled ? <p className="text-[15px] text-ink-muted">{t('waitlistExplainer')}</p> : null}
+          <EventSummaryCard event={event} locale={locale} />
           <CheckboxField label={t('photoConsent')} checked={photoConsent} onCheckedChange={setPhotoConsent} />
         </div>
       ) : null}
 
       {currentStep === 'confirm' ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <h2 className="font-display text-2xl">{full && waitlistEnabled ? t('joinWaitlist') : t('confirmTitle')}</h2>
           {full && waitlistEnabled ? <p className="text-[15px] text-ink-muted">{t('waitlistExplainer')}</p> : null}
+          <EventSummaryCard event={event} locale={locale} />
         </div>
       ) : null}
 
@@ -218,6 +231,43 @@ export function RegistrationForm({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * What the person is actually confirming. The step used to be a heading and a
+ * button, which gives nothing to check before committing to a date.
+ */
+function EventSummaryCard({ event, locale }: { event: EventSummary; locale: string }) {
+  const start = new Date(event.startsAt);
+  const end = new Date(event.endsAt);
+  const day = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    timeZone: event.timezone,
+  });
+  const sameDay = day.format(start) === day.format(end);
+  const where = [event.venueName, event.city].filter(Boolean).join(', ');
+
+  return (
+    <dl className="flex flex-col gap-2 rounded-lg bg-surface p-4 text-[15px]">
+      <div className="flex justify-between gap-4">
+        <dt className="text-ink-muted">Event</dt>
+        <dd className="text-right font-semibold">{event.title}</dd>
+      </div>
+      <div className="flex justify-between gap-4">
+        <dt className="text-ink-muted">When</dt>
+        <dd className="text-right font-semibold">
+          {sameDay ? day.format(start) : `${day.format(start)} — ${day.format(end)}`}
+        </dd>
+      </div>
+      {where ? (
+        <div className="flex justify-between gap-4">
+          <dt className="text-ink-muted">Where</dt>
+          <dd className="text-right font-semibold">{where}</dd>
+        </div>
+      ) : null}
+    </dl>
   );
 }
 

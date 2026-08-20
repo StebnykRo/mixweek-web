@@ -26,6 +26,24 @@ export type ProductView = {
   variants: Array<{ id: string; size: string; stockTotal: number; reserved: number; available: number }>;
 };
 
+/**
+ * Clothing sizes do not sort alphabetically. `size: 'asc'` in the database put
+ * a t-shirt's options in the order L, M, S, XL, XS, XXL, which reads as a
+ * shuffle. Known sizes take this order; anything else keeps its own relative
+ * position afterwards, sorted normally, so a non-clothing variant such as
+ * "ONE" or "250 ml" is not mangled.
+ */
+const SIZE_ORDER = ['ONE', 'ONE SIZE', 'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'];
+
+export function compareSizes(a: string, b: string): number {
+  const ia = SIZE_ORDER.indexOf(a.trim().toUpperCase());
+  const ib = SIZE_ORDER.indexOf(b.trim().toUpperCase());
+  if (ia !== -1 && ib !== -1) return ia - ib;
+  if (ia !== -1) return -1;
+  if (ib !== -1) return 1;
+  return a.localeCompare(b, 'en', { numeric: true });
+}
+
 export async function listProducts(tenantId: string, eventId: string): Promise<ProductView[]> {
   return withTenant(tenantId, async (db) => {
     const products = await db.product.findMany({
@@ -42,7 +60,7 @@ export async function listProducts(tenantId: string, eventId: string): Promise<P
         perUserLimit: true,
         variants: {
           where: { isActive: true },
-          orderBy: { size: 'asc' },
+          // Ordered in code — see compareSizes; the database cannot express it.
           select: { id: true, size: true, stockTotal: true },
         },
       },
@@ -60,10 +78,12 @@ export async function listProducts(tenantId: string, eventId: string): Promise<P
 
     return products.map((product) => ({
       ...product,
-      variants: product.variants.map((variant) => {
-        const reserved = reservedByVariant.get(variant.id) ?? 0;
-        return { ...variant, reserved, available: Math.max(0, variant.stockTotal - reserved) };
-      }),
+      variants: product.variants
+        .map((variant) => {
+          const reserved = reservedByVariant.get(variant.id) ?? 0;
+          return { ...variant, reserved, available: Math.max(0, variant.stockTotal - reserved) };
+        })
+        .sort((a, b) => compareSizes(a.size, b.size)),
     }));
   });
 }

@@ -36,6 +36,14 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
         {event.registrationOpen ? (
           <RegistrationForm
             eventSlug={event.slug}
+            event={{
+              title: event.title,
+              startsAt: new Date(event.startsAt).toISOString(),
+              endsAt: new Date(event.endsAt).toISOString(),
+              timezone: event.timezone,
+              city: event.city ?? null,
+              venueName: event.venueName ?? null,
+            }}
             fields={form.fields}
             capacity={event.capacity}
             registeredCount={event.registeredCount}
