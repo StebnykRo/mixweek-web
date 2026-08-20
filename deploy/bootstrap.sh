@@ -45,7 +45,7 @@ die() {
 [[ -r /etc/os-release ]] || die "cannot identify the operating system"
 # shellcheck disable=SC1091
 . /etc/os-release
-[[ ${ID:-} == ubuntu ]] || warn "tested on Ubuntu 24.04; found ${PRETTY_NAME:-unknown}"
+[[ ${ID:-} == ubuntu ]] || warn "written for Ubuntu LTS; found ${PRETTY_NAME:-unknown}"
 
 # ── packages ───────────────────────────────────────────────────────────
 log 'Updating the package index'

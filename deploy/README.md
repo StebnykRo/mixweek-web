@@ -5,7 +5,7 @@ end up with the application running on HTTPS. The whole path is four commands;
 the rest of this document explains what each one does and what to check
 afterwards.
 
-Target: **Ubuntu 24.04 LTS**, 2 vCPU / 4 GB RAM / 40 GB disk minimum. The
+Target: **Ubuntu 26.04 LTS** (`resolute`); 24.04 also works, 2 vCPU / 4 GB RAM / 40 GB disk minimum. The
 build is the memory-hungry part — 2 GB works only because `bootstrap.sh` adds
 swap, and it will be slow.
 

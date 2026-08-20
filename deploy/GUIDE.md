@@ -37,7 +37,7 @@ Get row 4 wrong and nobody will be able to sign in.
 
 ### 0.2 What the server must be
 
-- **Ubuntu 24.04 LTS** (22.04 also works)
+- **Ubuntu 26.04 LTS** (codename `resolute`). 24.04 also works.
 - At least **2 CPU cores, 4 GB RAM, 40 GB disk**
 - A **public IPv4 address**
 
