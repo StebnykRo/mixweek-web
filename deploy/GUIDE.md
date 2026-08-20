@@ -156,10 +156,10 @@ private and never leaves your Mac.
 **[MAC]**
 
 ```bash
-ls ~/.ssh/id_ed25519.pub
+ls -l ~/.ssh/mixweek.pub
 ```
 
-If it prints a path ending in `id_ed25519.pub`, you already have a key —
+If it prints a line ending in `mixweek.pub`, the key already exists —
 **skip to 2.3**.
 
 If it says `No such file or directory`, continue with 2.2.
@@ -169,17 +169,21 @@ If it says `No such file or directory`, continue with 2.2.
 **[MAC]**
 
 ```bash
-ssh-keygen -t ed25519 -C "mixweek-deploy"
+ssh-keygen -t ed25519 -C "mixweek-deploy" -f ~/.ssh/mixweek
 ```
 
-It will ask three questions:
+The `-f ~/.ssh/mixweek` part matters. It tells the command exactly where to put
+the key. Without it, the command asks you where to save it, and anything you
+type there is treated as relative to whatever folder you happen to be in — so
+the key ends up somewhere unexpected and later steps cannot find it.
 
-1. *"Enter file in which to save the key"* — press **Enter** to accept the
-   default.
-2. *"Enter passphrase"* — type a passphrase and press Enter. **You will not see
-   anything as you type. That is normal.** Choose something you can remember;
-   you will type it each time you connect.
-3. *"Enter same passphrase again"* — type the same thing again.
+It asks two questions:
+
+1. *"Enter passphrase"* — type a passphrase and press Enter. **You will not see
+   anything as you type, not even dots. That is normal.** Choose something you
+   can remember; you will type it each time you connect. Save it in your
+   password manager now.
+2. *"Enter same passphrase again"* — type the same thing again.
 
 It prints a small piece of ASCII art called a randomart image. That means it
 worked.
@@ -189,7 +193,7 @@ worked.
 **[MAC]**
 
 ```bash
-cat ~/.ssh/id_ed25519.pub
+cat ~/.ssh/mixweek.pub
 ```
 
 It prints one long line that starts with `ssh-ed25519 AAAA` and ends with a
@@ -207,7 +211,9 @@ Two warnings:
 - Copy the **whole** line, including `ssh-ed25519` at the start and the comment
   at the end. Partial copies fail in confusing ways.
 - This is the `.pub` file — the **public** half, safe to share. Never copy or
-  send the file without `.pub`; that one is the actual secret.
+  send the file without `.pub`; that one is the actual secret. In particular
+  keep it out of iCloud Drive, Dropbox and any other synced folder — `~/.ssh`
+  is not synced, which is exactly why keys belong there.
 
 ---
 
@@ -442,7 +448,7 @@ cat >> ~/.ssh/config <<'EOF'
 Host mixweek
     HostName SERVER_IP
     User deploy
-    IdentityFile ~/.ssh/id_ed25519
+    IdentityFile ~/.ssh/mixweek
     ServerAliveInterval 60
 EOF
 ```
