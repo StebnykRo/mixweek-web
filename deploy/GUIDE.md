@@ -219,8 +219,13 @@ Two warnings:
 
 ## Part 3 — Copy the application to the server
 
-The application currently exists only on this Mac. This part packages it up and
-sends it across.
+The code also lives on GitHub, and in Part 7.2 the server will fetch it from
+there properly. But at this moment the server is brand new: it has no keys, no
+git, and no way to authenticate to a private repository.
+
+So this part sends a one-off snapshot across using the server's root password —
+just enough to run the setup script. The proper GitHub connection comes after
+the server has been prepared.
 
 ### 3.1 Make a package
 
@@ -517,6 +522,83 @@ CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
 
 If instead you see `permission denied while trying to connect to the Docker
 daemon socket`, the log-out did not take. Repeat 7.1.
+
+### 7.2 Connect the server to GitHub
+
+What you copied across in Part 3 was a snapshot — a plain folder with no link
+back to where the code came from. Replacing it with a proper clone is what
+makes future updates a single command instead of another round of scp.
+
+The server gets its **own key**, separate from the one on your Mac, and that
+key is **read-only**. A server that can write to your source code is a server
+that can quietly alter what it deploys. It only ever needs to read.
+
+**[SERVER]** — create the key. There is no passphrase on this one, because
+nobody is sitting at the server to type it:
+
+```bash
+ssh-keygen -t ed25519 -C "mixweek-web server (read-only)" -f ~/.ssh/github_deploy -N ''
+```
+
+Display it:
+
+```bash
+cat ~/.ssh/github_deploy.pub
+```
+
+Copy the whole line.
+
+**[BROWSER]** — go to the repository on GitHub, then **Settings → Deploy keys
+→ Add deploy key**:
+
+| Field | Value |
+| --- | --- |
+| Title | `server-readonly` |
+| Key | the line you just copied |
+| Allow write access | **leave unticked** |
+
+Leaving that box unticked is the entire point of this step. Do not tick it.
+
+**[SERVER]** — tell SSH to use that key for GitHub:
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github_deploy
+  IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+```
+
+Check it works:
+
+```bash
+ssh -T git@github.com
+```
+
+Expect: `Hi StebnykRo/mixweek-web! You've successfully authenticated…`
+The warning about shell access is normal — GitHub says that to everyone.
+
+**[SERVER]** — replace the copied folder with a real clone. Nothing has been
+generated in it yet, so there is nothing to lose:
+
+```bash
+rm -rf ~/app && git clone git@github.com:StebnykRo/mixweek-web.git ~/app
+```
+
+Confirm:
+
+```bash
+ls ~/app/deploy && git -C ~/app log --oneline -1
+```
+
+You should see the file list again, and one line showing the latest commit.
+
+Do this step **before** Part 8. After Part 8 the folder contains generated
+passwords, and `rm -rf` would destroy them.
 
 ---
 
@@ -883,41 +965,71 @@ Then:
 
 ## Part 14 — Shipping updates later
 
-Once the application changes and needs redeploying, set this up so it takes one
-command.
+The code lives on GitHub, and the server has a read-only clone of it. Updating
+the live site is therefore two moves: publish the change, then tell the server
+to pick it up.
 
-### 14.1 On the server, once
+### 14.1 Publish the change
+
+**[MAC]** — from the project folder:
+
+```bash
+git push origin main
+```
+
+That updates GitHub. The live site is untouched so far, which is deliberate —
+pushing code and deploying it are separate decisions.
+
+### 14.2 Deploy it
+
+**[MAC]** — one command, run from anywhere:
+
+```bash
+ssh mixweek 'cd ~/app && git pull --ff-only && deploy/deploy.sh'
+```
+
+The output streams back to your Terminal so you can watch it happen. It takes
+a backup first, builds the new version, updates the database, and restarts. If
+the new version fails to start it puts the previous one back automatically and
+tells you so.
+
+`--ff-only` means "only move forward". If the server's copy has somehow been
+edited directly, the pull stops rather than producing a merge nobody asked
+for. If you see `Not possible to fast-forward`, somebody changed files on the
+server — see 14.4.
+
+### 14.3 Doing it from the server instead
+
+If you are already logged in:
+
+```bash
+cd ~/app && git pull --ff-only && deploy/deploy.sh
+```
+
+Exactly the same thing.
+
+### 14.4 If the pull refuses
+
+Something was edited directly on the server. GitHub is the source of truth, so
+throw the local changes away:
+
+```bash
+cd ~/app && git fetch origin && git reset --hard origin/main
+```
+
+This does **not** touch `deploy/.env.production` or `deploy/backups` — those
+are not tracked by git, so a reset leaves them alone.
+
+### 14.5 Checking what is actually deployed
 
 **[SERVER]**
 
 ```bash
-cd ~/app/deploy && bash setup-git-remote.sh
+git -C ~/app log --oneline -1
 ```
 
-It prints the line to run on your Mac.
-
-### 14.2 On your Mac, once
-
-**[MAC]**
-
-```bash
-cd "/Users/srv/Library/Mobile Documents/com~apple~CloudDocs/Projects/MixWeek app/mixweek-web"
-git remote add production mixweek:/home/deploy/repo/mixweek.git
-```
-
-### 14.3 Every time afterwards
-
-**[MAC]**
-
-```bash
-git push production main
-```
-
-That is the whole deployment. The server takes a backup, builds the new
-version, updates the database, and restarts. If the new version fails to start,
-it puts the previous one back automatically and tells you.
-
-Watch it happen — the output streams into your Terminal as it goes.
+Compare that to what `git log --oneline -1` shows on your Mac. If they differ,
+the server has not been updated yet.
 
 ---
 
@@ -957,10 +1069,17 @@ Backups          ~/app/deploy/backups   (nightly 03:15 UTC, kept 30 days)
 Status           dc ps
 Logs             dc logs -f app
 Restart          dc restart app worker
-Deploy update    git push production main      [from the Mac]
+Publish change   git push origin main                          [from the Mac]
+Deploy it        ssh mixweek 'cd ~/app && git pull --ff-only && deploy/deploy.sh'
+What is live     git -C ~/app log --oneline -1                  [on the server]
+
+Repository       github.com/StebnykRo/mixweek-web  (private)
+Keys             ~/.ssh/mixweek         Mac  -> server
+                 ~/.ssh/github_mixweek  Mac  -> GitHub  (write)
+                 ~/.ssh/github_deploy   server -> GitHub  (read-only)
 
 In the password manager, verify you have:
   [ ] APP_MASTER_KEY
   [ ] backups/age.key
-  [ ] SSH key passphrase
+  [ ] SSH key passphrases (mixweek, github_mixweek)
 ```

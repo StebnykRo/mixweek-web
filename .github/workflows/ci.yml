@@ -14,7 +14,6 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
-  PNPM_VERSION: '9'
 
 jobs:
   static:
@@ -22,8 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # No version input on purpose: action-setup@v4 reads
+      # package.json#packageManager, and supplying both is a hard error
+      # ("Multiple versions of pnpm specified").
       - uses: pnpm/action-setup@v4
-        with: { version: '${{ env.PNPM_VERSION }}' }
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -59,8 +60,10 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      # No version input on purpose: action-setup@v4 reads
+      # package.json#packageManager, and supplying both is a hard error
+      # ("Multiple versions of pnpm specified").
       - uses: pnpm/action-setup@v4
-        with: { version: '${{ env.PNPM_VERSION }}' }
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -110,8 +113,10 @@ jobs:
       APP_URL: http://localhost:3310
     steps:
       - uses: actions/checkout@v4
+      # No version input on purpose: action-setup@v4 reads
+      # package.json#packageManager, and supplying both is a hard error
+      # ("Multiple versions of pnpm specified").
       - uses: pnpm/action-setup@v4
-        with: { version: '${{ env.PNPM_VERSION }}' }
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -151,8 +156,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      # No version input on purpose: action-setup@v4 reads
+      # package.json#packageManager, and supplying both is a hard error
+      # ("Multiple versions of pnpm specified").
       - uses: pnpm/action-setup@v4
-        with: { version: '${{ env.PNPM_VERSION }}' }
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -169,13 +176,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # semgrep/semgrep-action is archived and its `config` input took a
+      # single value, so the three rulesets below were never all applied.
+      # The CLI is the supported path and takes --config more than once.
       - name: Semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/owasp-top-ten
-            p/typescript
-            p/react
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check semgrep
+          semgrep scan --error --quiet \
+            --config p/owasp-top-ten --config p/typescript --config p/react \
+            --exclude node_modules --exclude .next .
             p/secrets
 
       - name: SBOM

@@ -1,0 +1,28 @@
+# Secret scanning config for CI.
+#
+# The default rules are kept in full; this only records the handful of strings
+# that look like credentials but are documented placeholders. Each is listed
+# explicitly rather than by a broad pattern, so a real secret in the same file
+# would still be caught.
+
+title = "mixweek-web"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders — no value here unlocks anything"
+
+paths = [
+  '''\.env\.example''',
+  '''deploy/env\.production\.example''',
+]
+
+regexes = [
+  # Dockerfile build-time stand-in; base64 for "build-time-placeholder-32bytes!!".
+  '''YnVpbGQtdGltZS1wbGFjZWhvbGRlci0zMmJ5dGVzISE=''',
+  # The example shown in deploy/GUIDE.md §9.1.
+  '''EXAMPLE-ONLY-yours-will-be-44-random-characters=''',
+  # Local development database passwords, valid only against localhost.
+  '''app_(admin|user)_dev''',
+]
