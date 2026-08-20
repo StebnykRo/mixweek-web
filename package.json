@@ -36,7 +36,8 @@
     "test:coverage": "vitest run --project unit --coverage",
     "clean:conflicts": "node scripts/clean-sync-conflicts.mjs",
     "ops:provision-tenant": "tsx scripts/provision-tenant.ts",
-    "ops:signin-link": "tsx scripts/ops-signin-link.ts"
+    "ops:signin-link": "tsx scripts/ops-signin-link.ts",
+    "ops:demo-data": "tsx scripts/ops-demo-data.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

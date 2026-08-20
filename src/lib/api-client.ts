@@ -4,7 +4,10 @@
  * The browser-side fetch wrapper. Every call is same-origin with credentials,
  * which is what the CSRF check on the server expects (docs/09 §1).
  */
-export type ApiError = { code: string; message: string; requestId?: string; details?: unknown };
+/** Field-level detail from a 422; the shape the API actually returns. */
+export type ApiErrorDetail = { path?: string; message: string };
+
+export type ApiError = { code: string; message: string; requestId?: string; details?: ApiErrorDetail[] };
 
 export class ApiCallError extends Error {
   constructor(

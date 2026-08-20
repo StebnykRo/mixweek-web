@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useToast } from '@/components/providers/toast-provider';
+import { slugify, slugifyOrFallback } from '@/lib/slugify';
 
 const TIMEZONES = ['Asia/Nicosia', 'Europe/Kyiv', 'Europe/Warsaw', 'Europe/London', 'America/New_York', 'UTC'];
 
@@ -25,7 +26,7 @@ export function NewEventButton() {
         method: 'POST',
         body: {
           title: form.title,
-          slug: form.slug || slugify(form.title),
+          slug: form.slug.trim() || slugifyOrFallback(form.title),
           startsAt: new Date(form.startsAt).toISOString(),
           endsAt: new Date(form.endsAt).toISOString(),
           timezone: form.timezone,
@@ -40,7 +41,13 @@ export function NewEventButton() {
       router.push(`/admin/events/${event.id}`);
       router.refresh();
     } catch (error) {
-      toast.show(error instanceof ApiCallError ? error.error.message : 'Could not create the event', 'error');
+      const detail =
+        error instanceof ApiCallError
+          ? [error.error.message, ...(error.error.details ?? []).map((d) => `${d.path || 'field'}: ${d.message}`)]
+              .filter(Boolean)
+              .join(' — ')
+          : 'Could not create the event';
+      toast.show(detail, 'error');
     } finally {
       setPending(false);
     }
@@ -57,7 +64,7 @@ export function NewEventButton() {
             <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
             <Input
               label="URL slug"
-              hint={`Leave empty to use “${slugify(form.title) || 'my-event'}”`}
+              hint={`Leave empty to use “${slugifyOrFallback(form.title, 'xxxxxx')}”`}
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
             />
@@ -101,13 +108,4 @@ export function NewEventButton() {
       </Sheet>
     </>
   );
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 60);
 }
