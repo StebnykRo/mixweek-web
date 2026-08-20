@@ -30,6 +30,10 @@ async function main() {
   const domain = arg('domain')?.trim().toLowerCase();
   const admin = arg('admin')?.trim().toLowerCase();
   const locale = arg('locale')?.trim() ?? 'en';
+  // Every locale the application ships, with --locale deciding the default.
+  // Offering only the default made the language step in onboarding a list of
+  // one, and left the other two translations unreachable.
+  const locales = Array.from(new Set([locale, 'en', 'uk', 'ru']));
   const timezone = arg('timezone')?.trim() ?? 'Asia/Nicosia';
 
   if (!slug || !name || !domain || !admin) {
@@ -63,8 +67,8 @@ async function main() {
 
   const tenant = await prisma.tenant.upsert({
     where: { slug },
-    update: { name, defaultLocale: locale, timezone },
-    create: { slug, name, defaultLocale: locale, locales: [locale], timezone },
+    update: { name, defaultLocale: locale, locales, timezone },
+    create: { slug, name, defaultLocale: locale, locales, timezone },
     select: { id: true, slug: true },
   });
 

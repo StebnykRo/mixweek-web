@@ -146,13 +146,16 @@ const PROGRAMME: Array<[number, number, number, string, Track, string, boolean, 
   [2, 12, 14, 'Departures', 'LOGISTICS', 'Hotel Reception', false, null],
 ];
 
+// PNG rather than SVG on purpose: next/image refuses SVG sources unless
+// dangerouslyAllowSVG is set, and enabling that for the whole application to
+// carry demo artwork is a poor trade.
 const ALBUMS: Array<[string, string, string, string]> = [
   // title, cover, external link, kind
-  ['Opening night', '/demo/album-opening.svg', 'https://example.com/albums/opening-night', 'PHOTOGRAPHER_GALLERY'],
-  ['Beach day', '/demo/album-beach.svg', 'https://example.com/albums/beach-day', 'PHOTOGRAPHER_GALLERY'],
-  ['Workshops', '/demo/album-workshops.svg', 'https://example.com/albums/workshops', 'PARTICIPANT_UPLOAD'],
-  ['Team challenge', '/demo/album-team.svg', 'https://example.com/albums/team-challenge', 'PARTICIPANT_UPLOAD'],
-  ['Aftermovie', '/demo/aftermovie.svg', 'https://example.com/videos/aftermovie', 'AFTERMOVIE'],
+  ['Opening night', '/demo/album-opening.png', 'https://example.com/albums/opening-night', 'PHOTOGRAPHER_GALLERY'],
+  ['Beach day', '/demo/album-beach.png', 'https://example.com/albums/beach-day', 'PHOTOGRAPHER_GALLERY'],
+  ['Workshops', '/demo/album-workshops.png', 'https://example.com/albums/workshops', 'PARTICIPANT_UPLOAD'],
+  ['Team challenge', '/demo/album-team.png', 'https://example.com/albums/team-challenge', 'PARTICIPANT_UPLOAD'],
+  ['Aftermovie', '/demo/aftermovie.png', 'https://example.com/videos/aftermovie', 'AFTERMOVIE'],
 ];
 
 const MERCH: Array<[string, string, string, number, string[]]> = [
@@ -179,7 +182,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
     description:
       'Demo content created by ops:demo-data. Everything here is safe to edit or delete — it exists so the ' +
       'programme, map, merchandise and photo screens can be seen working before real content lands.',
-    coverUrl: '/demo/album-beach.svg',
+    coverUrl: '/demo/album-beach.png',
     startsAt: at(start, 0, 9),
     endsAt: at(start, 2, 22),
     timezone: 'Asia/Nicosia',
@@ -222,7 +225,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
         mapY,
         // The map view takes its floor plan from the first place that has an
         // image, so every place carries the same one.
-        imageUrl: '/demo/venue-map.svg',
+        imageUrl: '/demo/venue-map.png',
         sortOrder: index,
       },
       select: { id: true, name: true },
@@ -285,7 +288,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
           name,
           description,
           priceCents,
-          imageUrl: '/demo/album-workshops.svg',
+          imageUrl: '/demo/album-workshops.png',
           perUserLimit: 1,
           sortOrder: index,
           isActive: true,
