@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Sets up push-to-deploy on the server. Run once, as the deploy user:
+# Sets up push-to-deploy on the server. Run once, as the usrmixweek user:
 #
 #   bash setup-git-remote.sh
 #

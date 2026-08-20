@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Installs and starts the application. Run as the deploy user, from the
+# Installs and starts the application. Run as the usrmixweek user, from the
 # checkout on the server:
 #
 #   cd ~/app/deploy && ./install-app.sh

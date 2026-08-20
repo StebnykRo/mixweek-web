@@ -3,14 +3,14 @@
 # Security pass. Called by bootstrap.sh, and safe to re-run at any time —
 # every step is idempotent.
 #
-#   sudo DEPLOY_USER=deploy bash harden.sh
+#   sudo DEPLOY_USER=usrmixweek bash harden.sh
 #
 # Covers: SSH key-only login, firewall, fail2ban, automatic security updates,
 # kernel network settings.
 
 set -euo pipefail
 
-DEPLOY_USER="${DEPLOY_USER:-deploy}"
+DEPLOY_USER="${DEPLOY_USER:-usrmixweek}"
 SSH_PORT="${SSH_PORT:-22}"
 
 log() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -42,7 +42,7 @@ PubkeyAuthentication yes
 PermitEmptyPasswords no
 AuthenticationMethods publickey
 
-# Only the deploy user may log in at all.
+# Only the usrmixweek user may log in at all.
 AllowUsers $DEPLOY_USER
 
 X11Forwarding no

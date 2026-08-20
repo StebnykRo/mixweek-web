@@ -94,10 +94,10 @@ git clone https://github.com/YOUR_ORG/mixweek-web.git /root/mixweek-web
 
 ```bash
 cd /root/mixweek-web/deploy
-bash bootstrap.sh --user deploy --ssh-key "ssh-ed25519 AAAA… srv@mixweek-deploy"
+bash bootstrap.sh --user usrmixweek --ssh-key "ssh-ed25519 AAAA… srv@mixweek-deploy"
 ```
 
-Paste your own public key inside the quotes. The script creates the `deploy`
+Paste your own public key inside the quotes. The script creates the `usrmixweek`
 user, installs Docker, adds swap, and then calls `harden.sh`, which sets up
 the firewall, fail2ban, automatic security updates, and key-only SSH.
 
@@ -105,21 +105,21 @@ the firewall, fail2ban, automatic security updates, and key-only SSH.
 back in:
 
 ```bash
-ssh deploy@YOUR_SERVER_IP
+ssh usrmixweek@YOUR_SERVER_IP
 ```
 
 If that works, you are safe. If it does not, fix it from the still-open root
 session — password login and root login are now off, and your provider's
 web console would be the only way back in.
 
-### 2.4 Move the checkout to the deploy user
+### 2.4 Move the checkout to the usrmixweek user
 
 ```bash
 sudo mv /root/mixweek-web ~/app
-sudo chown -R deploy:deploy ~/app
+sudo chown -R usrmixweek:usrmixweek ~/app
 ```
 
-Everything from here runs as `deploy`, not root.
+Everything from here runs as `usrmixweek`, not root.
 
 ---
 
@@ -140,7 +140,7 @@ That creates a bare repository at `~/repo/mixweek.git` and installs a
 `mixweek-web` checkout:
 
 ```bash
-git remote add production deploy@YOUR_SERVER_IP:/home/deploy/repo/mixweek.git
+git remote add production usrmixweek@YOUR_SERVER_IP:/home/usrmixweek/repo/mixweek.git
 ```
 
 From then on, `git push production main` checks the code out on the server and
@@ -151,12 +151,12 @@ To avoid retyping the host, add to `~/.ssh/config` on your Mac:
 ```
 Host mixweek
     HostName YOUR_SERVER_IP
-    User deploy
+    User usrmixweek
     IdentityFile ~/.ssh/id_ed25519
     ServerAliveInterval 60
 ```
 
-Then `ssh mixweek` and `git remote set-url production mixweek:/home/deploy/repo/mixweek.git`.
+Then `ssh mixweek` and `git remote set-url production mixweek:/home/usrmixweek/repo/mixweek.git`.
 
 ### 3.2 Pull from GitHub instead
 
@@ -266,7 +266,7 @@ alias dc='docker compose --env-file ~/app/deploy/.env.production -f ~/app/deploy
 | Database shell | `dc exec postgres psql -U app_admin -d mixweek` |
 | Manual backup | `DEPLOY_DIR=~/app/deploy ./backup.sh` |
 | Restore a backup | `./restore.sh backups/mixweek-….dump.age` |
-| Re-apply hardening | `sudo DEPLOY_USER=deploy bash harden.sh` |
+| Re-apply hardening | `sudo DEPLOY_USER=usrmixweek bash harden.sh` |
 | Revoke all sessions | `dc run --rm --entrypoint '' migrator pnpm ops:revoke-sessions` |
 | Suspend a tenant | `dc run --rm --entrypoint '' migrator pnpm ops:disable-tenant --id=…` |
 
@@ -281,7 +281,7 @@ run. That is why the pre-deploy backup exists.
 
 What `harden.sh` puts in place, and why each piece is there:
 
-**SSH.** Key-only, root login refused, only the `deploy` user permitted, three
+**SSH.** Key-only, root login refused, only the `usrmixweek` user permitted, three
 attempts before the connection drops, modern ciphers only. Ubuntu cloud images
 often ship a drop-in that re-enables password authentication; the script
 rewrites it rather than relying on file ordering.
@@ -336,7 +336,7 @@ happens, so the previous release is still serving. Fix the migration, push
 again.
 
 **Locked out of SSH.** Use your provider's web console, log in as root, and
-either add your key to `/home/deploy/.ssh/authorized_keys` or temporarily set
+either add your key to `/home/usrmixweek/.ssh/authorized_keys` or temporarily set
 `PasswordAuthentication yes` in `/etc/ssh/sshd_config.d/10-hardening.conf`
 followed by `systemctl reload ssh`.
 

@@ -3,10 +3,10 @@
 # Run once, as root, on a fresh Ubuntu 24.04 host.
 #
 #   ssh root@<ip>
-#   bash bootstrap.sh --user deploy --ssh-key "ssh-ed25519 AAAA... you@mac"
+#   bash bootstrap.sh --user usrmixweek --ssh-key "ssh-ed25519 AAAA... you@mac"
 #
-# Creates the deploy user, installs Docker, and hardens the host. It does not
-# touch the application; install-app.sh does that, as the deploy user.
+# Creates the usrmixweek user, installs Docker, and hardens the host. It does not
+# touch the application; install-app.sh does that, as the usrmixweek user.
 #
 # SSH password login is disabled at the end. The script refuses to do that
 # unless an authorized key is in place, and prints a warning telling you to
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-DEPLOY_USER=deploy
+DEPLOY_USER=usrmixweek
 SSH_KEY=''
 SSH_PORT=22
 
@@ -63,7 +63,7 @@ apt-get install -y -qq \
 timedatectl set-timezone UTC
 systemctl enable --now chrony
 
-# ── deploy user ────────────────────────────────────────────────────────
+# ── application user ────────────────────────────────────────────────────────
 if id -u "$DEPLOY_USER" >/dev/null 2>&1; then
 	log "User $DEPLOY_USER already exists"
 else
@@ -91,7 +91,7 @@ fi
 chown "$DEPLOY_USER:$DEPLOY_USER" "$AUTH_KEYS"
 chmod 600 "$AUTH_KEYS"
 
-# sudo without a password, because the deploy user has no password to type.
+# sudo without a password, because the usrmixweek user has no password to type.
 # The account is key-only, so the SSH key is the real credential.
 printf '%s ALL=(ALL) NOPASSWD:ALL\n' "$DEPLOY_USER" >"/etc/sudoers.d/90-$DEPLOY_USER"
 chmod 440 "/etc/sudoers.d/90-$DEPLOY_USER"
@@ -128,7 +128,7 @@ else
 fi
 
 # Membership of the docker group is root-equivalent. That is accepted here:
-# the deploy user already has passwordless sudo.
+# the usrmixweek user already has passwordless sudo.
 usermod -aG docker "$DEPLOY_USER"
 systemctl enable --now docker
 

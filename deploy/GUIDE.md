@@ -85,7 +85,7 @@ fails with "no such file or directory", check which machine you are on first.
 
 To tell which one you are on, look at the start of the line where you type.
 On your Mac it shows your Mac's name. On the server it shows something like
-`root@ubuntu` or `deploy@ubuntu`.
+`root@ubuntu` or `usrmixweek@ubuntu`.
 
 ---
 
@@ -344,13 +344,13 @@ Now the main command. **Paste your public key from step 2.3 between the
 quotes**, replacing `PASTE_YOUR_PUBLIC_KEY_HERE`:
 
 ```bash
-bash bootstrap.sh --user deploy --ssh-key "PASTE_YOUR_PUBLIC_KEY_HERE"
+bash bootstrap.sh --user usrmixweek --ssh-key "PASTE_YOUR_PUBLIC_KEY_HERE"
 ```
 
 The finished command looks roughly like this — one long line:
 
 ```bash
-bash bootstrap.sh --user deploy --ssh-key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExample mixweek-deploy"
+bash bootstrap.sh --user usrmixweek --ssh-key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExample mixweek-deploy"
 ```
 
 Keep the double quotes. The key contains spaces, and without quotes the script
@@ -365,7 +365,7 @@ It runs for **five to ten minutes** and prints blue `==>` lines as it goes:
 ```
 ==> Updating the package index
 ==> Installing base packages
-==> Creating deploy
+==> Creating usrmixweek
 ==> Creating a 2G swapfile
 ==> Installing Docker from the official repository
 ==> Bootstrap finished — now running the hardening pass
@@ -391,8 +391,8 @@ and it is not optional.
 
 Worth understanding, because you now have a different way of logging in.
 
-The script created a user called **`deploy`**. From now on you log in as
-`deploy`, not as `root`. Root login over SSH is switched off.
+The script created a user called **`usrmixweek`**. From now on you log in as
+`usrmixweek`, not as `root`. Root login over SSH is switched off.
 
 It also:
 
@@ -419,13 +419,13 @@ into the server.
 **[MAC]**
 
 ```bash
-ssh deploy@SERVER_IP
+ssh usrmixweek@SERVER_IP
 ```
 
 It will ask for the **passphrase for your SSH key** (the one you chose in step
 2.2), not the server's root password.
 
-**If you land at a prompt reading `deploy@ubuntu:~$`, you are safe.** Continue
+**If you land at a prompt reading `usrmixweek@ubuntu:~$`, you are safe.** Continue
 to 6.2.
 
 **If you get `Permission denied (publickey)`:** do not close the first window.
@@ -440,7 +440,7 @@ root — and type:
 exit
 ```
 
-From here on, everything is done in the `deploy` session from 6.1.
+From here on, everything is done in the `usrmixweek` session from 6.1.
 
 ### 6.3 Make future logins easier
 
@@ -452,7 +452,7 @@ cat >> ~/.ssh/config <<'EOF'
 
 Host mixweek
     HostName SERVER_IP
-    User deploy
+    User usrmixweek
     IdentityFile ~/.ssh/mixweek
     ServerAliveInterval 60
 EOF
@@ -477,10 +477,10 @@ ssh mixweek
 
 ## Part 7 — Move the application into place
 
-**[SERVER]** — in your `deploy` session:
+**[SERVER]** — in your `usrmixweek` session:
 
 ```bash
-sudo mv /root/mixweek-web ~/app && sudo chown -R deploy:deploy ~/app
+sudo mv /root/mixweek-web ~/app && sudo chown -R usrmixweek:usrmixweek ~/app
 ```
 
 Check:
@@ -857,7 +857,7 @@ measure for testing, not something to rely on.
 ### 12.1 "Permission denied" or "command not found"
 
 Check which machine you are on. Look at the start of the line where you type:
-your Mac's name means **[MAC]**, `deploy@ubuntu` means **[SERVER]**. Running a
+your Mac's name means **[MAC]**, `usrmixweek@ubuntu` means **[SERVER]**. Running a
 [SERVER] command on your Mac is the most common cause.
 
 ### 12.2 The script stopped with a red `[x]` line
@@ -866,26 +866,26 @@ That line says what went wrong. The scripts stop deliberately rather than
 continuing in a broken state. Fix what it names and run the same command again
 — all of them are safe to re-run.
 
-### 12.3 `Permission denied (publickey)` when connecting as deploy
+### 12.3 `Permission denied (publickey)` when connecting as usrmixweek
 
 Your key did not get installed properly. **In the root window that is still
 open** (Part 6 told you not to close it):
 
 ```bash
-mkdir -p /home/deploy/.ssh
-nano /home/deploy/.ssh/authorized_keys
+mkdir -p /home/usrmixweek/.ssh
+nano /home/usrmixweek/.ssh/authorized_keys
 ```
 
 Paste your public key from step 2.3 as a single line. Save with `Ctrl + O`,
 Enter, `Ctrl + X`. Then:
 
 ```bash
-chown -R deploy:deploy /home/deploy/.ssh
-chmod 700 /home/deploy/.ssh
-chmod 600 /home/deploy/.ssh/authorized_keys
+chown -R usrmixweek:usrmixweek /home/usrmixweek/.ssh
+chmod 700 /home/usrmixweek/.ssh
+chmod 600 /home/usrmixweek/.ssh/authorized_keys
 ```
 
-Try connecting as `deploy` again in the second window.
+Try connecting as `usrmixweek` again in the second window.
 
 **If you closed the root window already** and cannot get in at all: log in
 through your hosting provider's web console (variously "Console", "VNC",
