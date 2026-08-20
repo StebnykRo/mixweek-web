@@ -59,127 +59,177 @@ You want your server's IP back. Until you get it, stop here.
 
 ---
 
-## 2. Server preparation
+## 2. Keys
 
-### 2.1 Get an SSH key onto the machine
+Three SSH connections, three keys. Each is scoped to one thing, so a leak stays
+contained.
 
-You need a key pair on your Mac. If you do not have one:
+| Key | Lives on | Purpose | Access |
+| --- | --- | --- | --- |
+| A `github_mixweek` | Mac | push code | read + write |
+| B `mixweek` | Mac | log in to the server | login as `usrmixweek` |
+| C `github_deploy` | server | pull code | **read only** |
 
-```bash
-ssh-keygen -t ed25519 -C "srv@mixweek-deploy"
-```
+C is read-only deliberately: a server that can push to the source can alter
+what it deploys.
 
-Accept the default path (`~/.ssh/id_ed25519`) and set a passphrase. Then print
-the public half — this is the string you will pass to the bootstrap script:
-
-```bash
-cat ~/.ssh/id_ed25519.pub
-```
-
-It is one line beginning `ssh-ed25519 AAAA…`. The **public** key is what goes
-on the server. The private key (no `.pub`) never leaves your machine.
-
-### 2.2 Copy this directory to the server
-
-Log in as root using whatever credentials your provider gave you, and clone
-the repository. If it is not on a hosting service yet, see §3.2 for the
-push-first route; otherwise:
+On the Mac, for A and B:
 
 ```bash
-ssh root@YOUR_SERVER_IP
-git clone https://github.com/YOUR_ORG/mixweek-web.git /root/mixweek-web
+ssh-keygen -t ed25519 -C "mixweek-web (mac push)" -f ~/.ssh/github_mixweek
+ssh-keygen -t ed25519 -C "mixweek-deploy" -f ~/.ssh/mixweek
+ssh-add --apple-use-keychain ~/.ssh/github_mixweek ~/.ssh/mixweek
 ```
 
-### 2.3 Run the bootstrap
+Always pass `-f`. Answering the interactive prompt with a bare name writes the
+key relative to the current directory, not into `~/.ssh`.
+
+Register A on the repository as a deploy key **with** write access, then:
 
 ```bash
-cd /root/mixweek-web/deploy
-bash bootstrap.sh --user usrmixweek --ssh-key "ssh-ed25519 AAAA… srv@mixweek-deploy"
+cat >> ~/.ssh/config <<'EOF'
+
+Host github-mixweek
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github_mixweek
+  IdentitiesOnly yes
+  AddKeysToAgent yes
+  UseKeychain yes
+EOF
+git remote add origin git@github-mixweek:YOUR_ORG/mixweek-web.git
+git push -u origin main
 ```
 
-Paste your own public key inside the quotes. The script creates the `usrmixweek`
-user, installs Docker, adds swap, and then calls `harden.sh`, which sets up
-the firewall, fail2ban, automatic security updates, and key-only SSH.
-
-**Before you close that terminal**, open a second one and confirm you can get
-back in:
-
-```bash
-ssh usrmixweek@YOUR_SERVER_IP
-```
-
-If that works, you are safe. If it does not, fix it from the still-open root
-session — password login and root login are now off, and your provider's
-web console would be the only way back in.
-
-### 2.4 Move the checkout to the usrmixweek user
-
-```bash
-sudo mv /root/mixweek-web ~/app
-sudo chown -R usrmixweek:usrmixweek ~/app
-```
-
-Everything from here runs as `usrmixweek`, not root.
+`IdentitiesOnly yes` matters. Without it SSH offers every key, GitHub
+authenticates against whichever other repository matches first, and the push
+fails with "repository not found" for a repository that exists.
 
 ---
 
-## 3. Connecting this machine to the server
+## 3. Server preparation
 
-Two options. The first needs nothing but SSH, which you already have.
+Nothing is copied onto the server by hand. Root creates the account, then the
+server fetches everything from GitHub itself.
 
-### 3.1 Push straight to the server (recommended to start)
+### 3.1 Root, six commands, then done
 
-On the server:
-
-```bash
-cd ~/app/deploy && bash setup-git-remote.sh
-```
-
-That creates a bare repository at `~/repo/mixweek.git` and installs a
-`post-receive` hook. The script prints the remote to add. On your Mac, in the
-`mixweek-web` checkout:
+A fresh server offers only root, so the first login is root by necessity. It
+exists to create `usrmixweek` and let it in, then it is closed.
 
 ```bash
-git remote add production usrmixweek@YOUR_SERVER_IP:/home/usrmixweek/repo/mixweek.git
+ssh root@YOUR_SERVER_IP
 ```
 
-From then on, `git push production main` checks the code out on the server and
-runs a deploy. Pushing any other branch is stored but does not deploy.
+```bash
+apt-get update && apt-get install -y git
+adduser --disabled-password --gecos '' usrmixweek
+usermod -aG sudo usrmixweek
 
-To avoid retyping the host, add to `~/.ssh/config` on your Mac:
+install -d -m 700 -o usrmixweek -g usrmixweek /home/usrmixweek/.ssh
+echo "PASTE_KEY_B_PUBLIC_HERE" > /home/usrmixweek/.ssh/authorized_keys
+chown usrmixweek:usrmixweek /home/usrmixweek/.ssh/authorized_keys
+chmod 600 /home/usrmixweek/.ssh/authorized_keys
+
+echo 'usrmixweek ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/90-usrmixweek
+chmod 440 /etc/sudoers.d/90-usrmixweek
+visudo -c
+```
+
+`visudo -c` must print `parsed OK`. The account has no password, so passwordless
+sudo is not a weakening — the SSH key is the credential.
+
+### 3.2 Verify the new account before going further
+
+In a second terminal, while the root session is still open:
+
+```bash
+ssh usrmixweek@YOUR_SERVER_IP
+sudo whoami        # -> root, no prompt
+```
+
+Password login still works as a fallback at this point; after §3.4 it will not.
+Once this succeeds, `exit` the root session. Nothing else uses root directly.
+
+### 3.3 Key C, then clone
+
+As `usrmixweek`:
+
+```bash
+ssh-keygen -t ed25519 -C "mixweek-web server (read-only)" -f ~/.ssh/github_deploy -N ''
+cat ~/.ssh/github_deploy.pub
+```
+
+No passphrase: nobody is at the server to type one. Register that key on the
+repository as a deploy key with **"Allow write access" unchecked**. Then:
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github_deploy
+  IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+
+ssh -T git@github.com          # -> Hi YOUR_ORG/mixweek-web!
+git clone git@github.com:YOUR_ORG/mixweek-web.git ~/app
+```
+
+### 3.4 Harden
+
+```bash
+cd ~/app/deploy && sudo bash bootstrap.sh
+```
+
+Installs Docker and swap, then calls `harden.sh`: firewall, fail2ban,
+automatic security updates, key-only SSH restricted to `usrmixweek`. No
+`--ssh-key` is needed — key B is already in place and the script leaves an
+existing key alone.
+
+`sudo` because this rewrites the SSH and firewall configuration. That is
+privileged work whichever account asks for it; what matters is that the
+application, its files and its containers never run as root.
+
+Confirm you are still in from the other terminal, then log out and back in so
+the docker group applies:
+
+```bash
+ssh mixweek && docker ps
+```
+
+### 3.5 Arriving as root later
+
+Only happens via the provider's web console; SSH refuses root after §3.4.
+Switch across before touching anything:
+
+```bash
+sudo su - usrmixweek
+```
+
+The `-` loads the account's environment. Without it `~` still points at root's
+home and commands land in the wrong place.
+
+### 3.6 Shorten the login
+
+On the Mac:
 
 ```
 Host mixweek
     HostName YOUR_SERVER_IP
     User usrmixweek
-    IdentityFile ~/.ssh/id_ed25519
+    IdentityFile ~/.ssh/mixweek
     ServerAliveInterval 60
 ```
 
-Then `ssh mixweek` and `git remote set-url production mixweek:/home/usrmixweek/repo/mixweek.git`.
+### 3.7 Alternative: push straight to the server
 
-### 3.2 Pull from GitHub instead
-
-If you would rather the server pulled from GitHub, generate a key **on the
-server** and register it as a read-only deploy key:
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/github_deploy -N ''
-cat ~/.ssh/github_deploy.pub
-```
-
-Add that public key in GitHub under Settings → Deploy keys, leaving "Allow
-write access" unchecked. Then on the server:
-
-```bash
-printf 'Host github.com\n  IdentityFile ~/.ssh/github_deploy\n' >> ~/.ssh/config
-git clone git@github.com:YOUR_ORG/mixweek-web.git ~/app
-```
-
-Deploys then become `cd ~/app && git pull && deploy/deploy.sh`. This is the
-better option once more than one person deploys, because GitHub becomes the
-single source of truth. The push-to-deploy route is simpler while it is just
-you.
+If you would rather skip GitHub entirely, `setup-git-remote.sh` creates a bare
+repository with a `post-receive` hook, and `git push production main` deploys.
+Simpler for one person; GitHub is better once more than one person ships,
+because it gives you a single source of truth and an audit trail.
 
 ---
 

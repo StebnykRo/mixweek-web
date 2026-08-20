@@ -83,8 +83,11 @@ if [[ -n $SSH_KEY ]]; then
 		log "Authorizing the supplied key for $DEPLOY_USER"
 		printf '%s\n' "$SSH_KEY" >>"$AUTH_KEYS"
 	fi
-elif [[ -s /root/.ssh/authorized_keys ]]; then
-	log "No --ssh-key given; copying root's authorized_keys"
+elif [[ ! -s $AUTH_KEYS && -s /root/.ssh/authorized_keys ]]; then
+	# Only as a last resort. If the account already has a key, leave it alone:
+	# silently granting root's keys to a second account is not something to do
+	# behind the operator's back.
+	log "No --ssh-key given and no key present; copying root's authorized_keys"
 	cat /root/.ssh/authorized_keys >>"$AUTH_KEYS"
 fi
 
