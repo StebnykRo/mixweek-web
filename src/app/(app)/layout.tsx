@@ -43,7 +43,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const winstyleEnabled = await isFeatureEnabled('module.winstyle', { tenantId });
 
   const nav: NavItem[] = [
-    { href: base, label: t('home'), icon: 'home' },
+    // exact: everything else on the event sits under this path.
+    { href: base, label: t('home'), icon: 'home', exact: true },
     { href: `${base}/programme`, label: t('programme'), icon: 'programme' },
     { href: `${base}/map`, label: t('map'), icon: 'map' },
     ...(winstyleEnabled ? [{ href: `${base}/winstyle`, label: t('winstyle'), icon: 'winstyle' as const }] : []),

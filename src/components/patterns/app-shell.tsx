@@ -7,6 +7,13 @@ export type NavItem = {
   href: string;
   label: string;
   icon: 'home' | 'programme' | 'map' | 'winstyle' | 'profile';
+  /**
+   * Match this path only, never its descendants. The event home lives at the
+   * event's own base path and every other tab hangs off it, so a prefix match
+   * lit Home up on every screen — two tabs highlighted at once, and no way to
+   * tell where you were.
+   */
+  exact?: boolean;
 };
 
 const ICONS = {
@@ -21,7 +28,7 @@ export type AppShellProps = {
   children: React.ReactNode;
   brand: { appName: string; kicker: string | null; logoLightUrl: string | null; logoMarkUrl: string | null };
   nav: NavItem[];
-  secondaryNav?: Array<{ href: string; label: string }>;
+  secondaryNav?: Array<{ href: string; label: string; exact?: boolean }>;
   activePath: string;
   unreadCount?: number;
   userLabel: string;
@@ -50,7 +57,7 @@ export function AppShell({
         <nav aria-label="Main" className="mt-8 flex flex-1 flex-col gap-1">
           {nav.map((item) => {
             const Icon = ICONS[item.icon];
-            const active = isActive(activePath, item.href);
+            const active = isActive(activePath, item.href, item.exact);
             return (
               <Link
                 key={item.href}
@@ -72,7 +79,7 @@ export function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-current={isActive(activePath, item.href) ? 'page' : undefined}
+                  aria-current={isActive(activePath, item.href, item.exact) ? 'page' : undefined}
                   className="flex h-11 items-center rounded-md px-3 text-sm text-ink-muted hover:bg-neutral-200"
                 >
                   {item.label}
@@ -106,7 +113,7 @@ export function AppShell({
         >
           {nav.map((item) => {
             const Icon = ICONS[item.icon];
-            const active = isActive(activePath, item.href);
+            const active = isActive(activePath, item.href, item.exact);
             return (
               <Link
                 key={item.href}
@@ -141,7 +148,7 @@ export function initials(name: string): string {
   return parts.map((p) => p.charAt(0).toUpperCase()).join('') || '?';
 }
 
-function isActive(current: string, href: string): boolean {
-  if (href === '/events') return current === '/events';
+function isActive(current: string, href: string, exact?: boolean): boolean {
+  if (exact || href === '/events') return current === href;
   return current === href || current.startsWith(`${href}/`);
 }
