@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GLOBAL_MODELS, isTenantScoped, NULLABLE_TENANT_MODELS, TENANT_SCOPED_MODELS } from '@/lib/db/models';
 import { emailDomain, normaliseEmail } from '@/modules/tenancy/service';
 import { matchesVisibility, registrationGate, type Viewer } from '@/modules/events/service';
 import { redactDiff } from '@/lib/audit';
 import { maskEmail } from '@/lib/logger';
+import { clientIpFrom, subnetOf } from '@/lib/http/context';
 
 /** docs/02-data-model.md §4.1 — the canonical list, and the rules built on it. */
 
@@ -158,5 +159,42 @@ describe('log and audit redaction', () => {
     const diff = redactDiff({ note: 'x'.repeat(1000) }) as { note: string };
     expect(diff.note.length).toBeLessThanOrEqual(501);
     expect(diff.note.endsWith('…')).toBe(true);
+  });
+});
+
+describe('client address behind a proxy', () => {
+  const headers = (entries: Record<string, string>) => new Headers(entries);
+
+  afterEach(() => {
+    delete process.env.TRUSTED_PROXY_HEADER;
+  });
+
+  it('reads only the named trusted header when one is configured', () => {
+    process.env.TRUSTED_PROXY_HEADER = 'x-real-ip';
+    const bag = headers({ 'x-real-ip': '203.0.113.7', 'x-forwarded-for': '1.2.3.4' });
+    expect(clientIpFrom(bag)).toBe('203.0.113.7');
+  });
+
+  it('ignores a forged X-Forwarded-For once a trusted header is named', () => {
+    process.env.TRUSTED_PROXY_HEADER = 'x-real-ip';
+    // The attacker controls X-Forwarded-For; without this rule they would get a
+    // fresh rate-limit bucket per request.
+    expect(clientIpFrom(headers({ 'x-forwarded-for': '9.9.9.9' }))).toBeNull();
+  });
+
+  it('takes the rightmost entry if the proxy ever appends', () => {
+    process.env.TRUSTED_PROXY_HEADER = 'x-real-ip';
+    expect(clientIpFrom(headers({ 'x-real-ip': '9.9.9.9, 203.0.113.7' }))).toBe('203.0.113.7');
+  });
+
+  it('falls back to the usual headers with no proxy configured', () => {
+    expect(clientIpFrom(headers({ 'x-forwarded-for': '203.0.113.9, 10.0.0.1' }))).toBe('203.0.113.9');
+    expect(clientIpFrom(headers({ 'x-real-ip': '203.0.113.8' }))).toBe('203.0.113.8');
+    expect(clientIpFrom(headers({}))).toBeNull();
+  });
+
+  it('aggregates to a /24 so an address is never stored whole', () => {
+    expect(subnetOf('203.0.113.7')).toBe('203.0.113.0/24');
+    expect(subnetOf(null)).toBe('unknown');
   });
 });

@@ -34,7 +34,8 @@
     "typecheck": "node scripts/clean-sync-conflicts.mjs && tsc --noEmit",
     "audit:security": "pnpm audit --audit-level=high && node scripts/check-headers.mjs",
     "test:coverage": "vitest run --project unit --coverage",
-    "clean:conflicts": "node scripts/clean-sync-conflicts.mjs"
+    "clean:conflicts": "node scripts/clean-sync-conflicts.mjs",
+    "ops:provision-tenant": "tsx scripts/provision-tenant.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

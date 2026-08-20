@@ -1,0 +1,52 @@
+# TLS is obtained and renewed automatically from Let's Encrypt. Port 80 must
+# stay open for the HTTP-01 challenge even though it only ever redirects.
+
+{
+	email {$ACME_EMAIL}
+	# Caddy's admin API, used by the container healthcheck. Loopback only.
+	admin 127.0.0.1:2019
+	servers {
+		# The app is the only thing behind this proxy and it sets its own
+		# headers; Caddy should not add its own opinions.
+		trusted_proxies static private_ranges
+	}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Written by the proxy on every request, replacing anything the client
+	# sent. The app reads this header and no other (TRUSTED_PROXY_HEADER),
+	# so a forged X-Forwarded-For cannot buy a fresh rate-limit bucket.
+	request_header X-Real-IP {remote_host}
+
+	header {
+		# HSTS. Two years, subdomains included, preload-eligible.
+		# Removing this later is slow — browsers cache it for the full
+		# max-age — so it goes on only once the domain is settled on HTTPS.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		# The app sets CSP per request with a nonce; Caddy must not touch it.
+		-Server
+		-X-Powered-By
+	}
+
+	reverse_proxy app:3000 {
+		health_uri /api/health
+		health_interval 15s
+		health_timeout 5s
+		# Uploads are capped in the app; this is the transport-level ceiling.
+		transport http {
+			read_timeout 60s
+			write_timeout 60s
+		}
+	}
+
+	# Request logging without the query string, which can carry tokens.
+	log {
+		output file /data/access.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+		format json
+	}
+}

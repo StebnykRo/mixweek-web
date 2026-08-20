@@ -21,3 +21,8 @@ prisma/*.db
 dump.rdb
 .DS_Store
 .vercel
+
+# Deployment — generated on the server, never committed.
+deploy/.env.production
+deploy/backups/
+deploy/*.key

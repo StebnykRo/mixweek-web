@@ -15,7 +15,27 @@ export type RequestContext = {
   session: SessionContext | null;
 };
 
+/**
+ * The caller's address, used for rate limiting and for the HMAC'd `ipHash`.
+ *
+ * Behind a reverse proxy this is security-relevant: a client can send its own
+ * `X-Forwarded-For`, and a proxy that appends to it leaves the forged value
+ * leftmost. Trusting that would hand anyone an unlimited number of rate-limit
+ * buckets on `/auth/start`.
+ *
+ * So the trusted header is named explicitly. `TRUSTED_PROXY_HEADER` (set to
+ * `x-real-ip` in the deployment) is read to the exclusion of everything else,
+ * and the proxy is configured to overwrite rather than append it. With no proxy
+ * — local development, tests — the header is absent and we fall back to the
+ * usual ones.
+ */
 export function clientIpFrom(headerBag: Headers): string | null {
+  const trusted = process.env.TRUSTED_PROXY_HEADER;
+  if (trusted) {
+    const value = headerBag.get(trusted);
+    return value ? (value.split(',').pop()?.trim() ?? null) : null;
+  }
+
   const forwarded = headerBag.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0]?.trim() ?? null;
   return headerBag.get('x-real-ip');

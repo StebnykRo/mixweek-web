@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Installed into ~/repo/mixweek.git/hooks/post-receive by setup-git-remote.sh.
+#
+# Pushing `main` checks the new revision out into the working directory and
+# runs a deploy. Pushing any other branch is accepted and stored, but does not
+# deploy — so you can push a feature branch to the server without shipping it.
+
+set -euo pipefail
+
+WORK_TREE="${DEPLOY_WORK_TREE:-$HOME/app}"
+GIT_DIR="${GIT_DIR:-$HOME/repo/mixweek.git}"
+DEPLOY_BRANCH=refs/heads/main
+
+while read -r _oldrev newrev refname; do
+	if [[ $refname != "$DEPLOY_BRANCH" ]]; then
+		echo "  ${refname#refs/heads/} received; only main deploys."
+		continue
+	fi
+
+	echo "==> Checking out ${newrev:0:7} into $WORK_TREE"
+	mkdir -p "$WORK_TREE"
+	# The working tree is disposable: it is overwritten from the repository on
+	# every push. -f discards local edits, which is the intent.
+	git --work-tree="$WORK_TREE" --git-dir="$GIT_DIR" checkout -f main
+
+	# .env.production lives in the working tree but is not in the repository,
+	# so a checkout never touches it. Confirm that stayed true.
+	if [[ ! -f "$WORK_TREE/deploy/.env.production" ]]; then
+		echo "  [x] $WORK_TREE/deploy/.env.production is missing — run install-app.sh first." >&2
+		exit 1
+	fi
+
+	echo "==> Deploying"
+	# unset so the deploy's own git calls use the working tree, not the hook's
+	# bare repository.
+	unset GIT_DIR GIT_WORK_TREE GIT_QUARANTINE_PATH
+	cd "$WORK_TREE/deploy"
+	./deploy.sh
+done

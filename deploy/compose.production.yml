@@ -1,0 +1,172 @@
+# Production stack for a single host (docs/01-architecture.md §1).
+#
+# Postgres and Redis bind to 127.0.0.1 only — docs/12 §12 requires that they
+# have no public address. Caddy is the only container that listens on the
+# public interface.
+#
+# Started by deploy/install-app.sh; updated by deploy/deploy.sh.
+
+name: mixweek
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'          # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data       # certificates and ACME account — do not delete
+      - caddy-config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:2019/config/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: runner
+    image: mixweek-app:${APP_VERSION:-latest}
+    restart: unless-stopped
+    env_file: [.env.production]
+    environment:
+      # Set by the proxy, overwritten there so a client cannot forge it.
+      TRUSTED_PROXY_HEADER: x-real-ip
+    # Reachable only from the proxy; never published to the host interface.
+    expose: ['3000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrator: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health',{headers:{'x-internal-probe':'1'}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    security_opt: ['no-new-privileges:true']
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: worker
+    image: mixweek-worker:${APP_VERSION:-latest}
+    restart: unless-stopped
+    env_file: [.env.production]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrator: { condition: service_completed_successfully }
+    security_opt: ['no-new-privileges:true']
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '5' }
+
+  # Runs once per deploy, before the app starts. Uses the privileged database
+  # role; the application itself connects as app_user (docs/02 §4.2).
+  migrator:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: migrator
+    image: mixweek-migrator:${APP_VERSION:-latest}
+    restart: 'no'
+    env_file: [.env.production]
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    # Loopback only. The application reaches it over the compose network.
+    ports: ['127.0.0.1:5432:5432']
+    environment:
+      POSTGRES_USER: app_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: mixweek
+      # Consumed by postgres-init/01-roles.sh on first boot.
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+      # Scrypt rather than the default md5 for stored password verifiers.
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256 --auth-local=scram-sha-256'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - wal-archive:/wal-archive
+    command:
+      - postgres
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - work_mem=8MB
+      # Continuous WAL archiving is what makes the RPO ≤ 15 min in docs/01 §8
+      # achievable; deploy/backup.sh copies the segments off the host.
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=test ! -f /wal-archive/%f && cp %p /wal-archive/%f
+      - -c
+      - log_min_duration_statement=1000
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app_admin -d mixweek']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+
+  redis:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    ports: ['127.0.0.1:6379:6379']
+    command:
+      - valkey-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --appendonly
+      - 'no'
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+
+volumes:
+  postgres-data:
+  wal-archive:
+  caddy-data:
+  caddy-config:
