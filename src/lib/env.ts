@@ -33,7 +33,16 @@ const EnvSchema = z.object({
 export type Env = z.infer<typeof EnvSchema>;
 
 function load(): Env {
-  const parsed = EnvSchema.safeParse(process.env);
+  // An optional setting left unused is written `KEY=` in a .env file, and
+  // process.env then holds an empty string rather than nothing at all. Zod
+  // sees a present value and runs the validator, so `S3_ENDPOINT=` fails as
+  // "Invalid url" and `APP_MASTER_KEY_PREVIOUS=` as a bad key — for settings
+  // the deployment deliberately does not use. Absent and empty mean the same
+  // thing here.
+  const source = Object.fromEntries(
+    Object.entries(process.env).filter(([, value]) => value !== undefined && value !== ''),
+  );
+  const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
     const missing = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
     throw new Error(`Invalid environment configuration:\n  - ${missing.join('\n  - ')}`);
