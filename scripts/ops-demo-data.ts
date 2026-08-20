@@ -162,12 +162,12 @@ const ALBUMS: Array<[string, string, string, string]> = [
   ['Aftermovie', '/demo/aftermovie.png', 'https://example.com/videos/aftermovie', 'AFTERMOVIE'],
 ];
 
-const MERCH: Array<[string, string, string, number, string[]]> = [
-  // sku, name, description, price in cents, sizes
-  ['TEE', 'Event T-shirt', 'Organic cotton, unisex fit. Free for every participant.', 0, ['XS', 'S', 'M', 'L', 'XL', 'XXL']],
-  ['HOODIE', 'Hoodie', 'Heavier than it looks. Runs one size large.', 0, ['S', 'M', 'L', 'XL']],
-  ['BOTTLE', 'Water bottle', 'Refill points are marked on the map.', 0, ['ONE']],
-  ['CAP', 'Cap', 'One size, adjustable.', 0, ['ONE']],
+const MERCH: Array<[string, string, string, number, string[], string]> = [
+  // sku, name, description, price in cents, sizes, image
+  ['TEE', 'Event T-shirt', 'Organic cotton, unisex fit. Free for every participant.', 0, ['XS', 'S', 'M', 'L', 'XL', 'XXL'], '/demo/product-tee.png'],
+  ['HOODIE', 'Hoodie', 'Heavier than it looks. Runs one size large.', 0, ['S', 'M', 'L', 'XL'], '/demo/product-hoodie.png'],
+  ['BOTTLE', 'Water bottle', 'Refill points are marked on the map.', 0, ['ONE'], '/demo/product-bottle.png'],
+  ['CAP', 'Cap', 'One size, adjustable.', 0, ['ONE'], '/demo/product-cap.png'],
 ];
 
 async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
@@ -283,7 +283,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
   }
 
   if (spec.withMerch) {
-    for (const [index, [sku, name, description, priceCents, sizes]] of MERCH.entries()) {
+    for (const [index, [sku, name, description, priceCents, sizes, image]] of MERCH.entries()) {
       const product = await prisma.product.create({
         data: {
           tenantId,
@@ -292,7 +292,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
           name,
           description,
           priceCents,
-          imageUrl: '/demo/album-workshops.png',
+          imageUrl: image,
           perUserLimit: 1,
           sortOrder: index,
           isActive: true,
