@@ -3,6 +3,7 @@ import { requirePermission, allows } from '@/modules/admin/guard';
 import { listAdminEvents } from '@/modules/admin/events';
 import { Badge } from '@/components/ui/badge';
 import { NewEventButton } from '@/components/admin/new-event-button';
+import { DuplicateEventButton } from '@/components/admin/duplicate-event-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Events' };
@@ -58,6 +59,9 @@ export default async function AdminEventsPage() {
               <Link href={`/admin/events/${event.id}/media`} className="font-semibold text-primary-700 underline">
                 Media
               </Link>
+              {allows(session, 'event:write') ? (
+                <DuplicateEventButton eventId={event.id} eventTitle={event.title} />
+              ) : null}
             </div>
           </li>
         ))}
