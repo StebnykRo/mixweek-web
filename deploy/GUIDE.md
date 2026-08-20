@@ -601,7 +601,7 @@ It prints two lines. Copy the value of the first one — everything after the
 `=` sign:
 
 ```
-APP_MASTER_KEY=k7Jx2mQp9vRt4wYz6BcD8eFgHiJkLmNoPqRsTuVwXyZ=
+APP_MASTER_KEY=EXAMPLE-ONLY-yours-will-be-44-random-characters=
 APP_MASTER_KEY_PREVIOUS=
 ```
 
