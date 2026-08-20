@@ -1,4 +1,5 @@
 import { PrismaClient, type Track, type PlaceKind } from '@prisma/client';
+import { DESIGN_TOKENS } from '../src/modules/branding/design-brand';
 
 /**
  * `pnpm ops:demo-data --tenant=<slug> [--reset]`
@@ -222,6 +223,23 @@ const CONTENT: Array<[string, string, string, string]> = [
   ],
 ];
 
+/**
+ * The packing checklist under EventStyle. The component is only rendered when
+ * items exist, so without these the feature was invisible rather than empty.
+ */
+const CHECKLIST: string[] = [
+  'Passport (check the expiry date)',
+  'Boarding passes or the airline app',
+  'Swimwear and a towel for the beach',
+  'Sunscreen and a hat',
+  'Comfortable shoes for the morning run',
+  'A light layer for air-conditioned rooms',
+  'Something smart for the welcome dinner',
+  'European plug adapter',
+  'Any medication you take regularly',
+  'Phone charger and a power bank',
+];
+
 const MERCH: Array<[string, string, string, number, string[], string]> = [
   // sku, name, description, price in cents, sizes, image
   ['TEE', 'Event T-shirt', 'Organic cotton, unisex fit. Free for every participant.', 0, ['XS', 'S', 'M', 'L', 'XL', 'XXL'], '/demo/product-tee.png'],
@@ -276,6 +294,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
   await prisma.mediaLink.deleteMany({ where: { eventId: event.id } });
   await prisma.product.deleteMany({ where: { eventId: event.id } });
   await prisma.contentBlock.deleteMany({ where: { eventId: event.id } });
+  await prisma.checklistItem.deleteMany({ where: { eventId: event.id } });
 
   const places: Record<string, string> = {};
   for (const [index, [name, kind, description, mapX, mapY]] of PLACES.entries()) {
@@ -332,6 +351,12 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
         sortOrder: index,
         isPublished: true,
       },
+    });
+  }
+
+  for (const [index, label] of CHECKLIST.entries()) {
+    await prisma.checklistItem.create({
+      data: { tenantId, eventId: event.id, label, sortOrder: index },
     });
   }
 
@@ -393,7 +418,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
     },
   });
 
-  const bits = [`${PLACES.length} places`, `${PROGRAMME.length} sessions`];
+  const bits = [`${PLACES.length} places`, `${PROGRAMME.length} sessions`, `${CHECKLIST.length} checklist items`];
   if (spec.withMerch) bits.push(`${MERCH.length} products`);
   if (spec.withAlbums) bits.push(`${ALBUMS.length} albums`);
   return `/events/${event.slug} — ${isPast ? 'finished' : 'upcoming'}, ${bits.join(', ')}`;
@@ -420,6 +445,19 @@ async function main() {
     });
     console.log(`Removed ${removed.count} demo event(s) from ${tenant.slug}.`);
     return;
+  }
+
+  // The tenant's default brand takes the prototype's palette, so the demo
+  // shows the design rather than the platform's fallback blue.
+  const defaultBrand = await prisma.brand.findFirst({
+    where: { tenantId: tenant.id, isDefault: true },
+    select: { id: true },
+  });
+  if (defaultBrand) {
+    await prisma.brand.update({
+      where: { id: defaultBrand.id },
+      data: { tokens: DESIGN_TOKENS as never, status: 'PUBLISHED', publishedAt: new Date() },
+    });
   }
 
   const built: string[] = [];

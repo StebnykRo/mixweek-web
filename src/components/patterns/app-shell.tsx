@@ -1,13 +1,12 @@
 import Link from 'next/link';
-import { Bell, CalendarDays, Home, Map, ShoppingBag, User } from 'lucide-react';
+import { Bell, CalendarDays, CalendarRange, Home, Map, ShoppingBag, User } from 'lucide-react';
 import { BrandLogo } from './brand-logo';
-import { MoreSheet } from './more-sheet';
 import { cn } from '@/lib/cn';
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: 'home' | 'programme' | 'map' | 'winstyle' | 'profile';
+  icon: 'home' | 'programme' | 'map' | 'winstyle' | 'events' | 'profile';
   /**
    * Match this path only, never its descendants. The event home lives at the
    * event's own base path and every other tab hangs off it, so a prefix match
@@ -19,6 +18,7 @@ export type NavItem = {
 
 const ICONS = {
   home: Home,
+  events: CalendarRange,
   programme: CalendarDays,
   map: Map,
   winstyle: ShoppingBag,
@@ -30,8 +30,6 @@ export type AppShellProps = {
   brand: { appName: string; kicker: string | null; logoLightUrl: string | null; logoMarkUrl: string | null };
   nav: NavItem[];
   secondaryNav?: Array<{ href: string; label: string; exact?: boolean }>;
-  /** Label for the mobile overflow menu. */
-  moreLabel?: string;
   activePath: string;
   unreadCount?: number;
   userLabel: string;
@@ -48,7 +46,6 @@ export function AppShell({
   brand,
   nav,
   secondaryNav = [],
-  moreLabel = 'More',
   activePath,
   unreadCount = 0,
   userLabel,
@@ -138,13 +135,6 @@ export function AppShell({
               </Link>
             );
           })}
-          {secondaryNav.length > 0 ? (
-            <MoreSheet
-              label={moreLabel}
-              links={secondaryNav}
-              active={secondaryNav.some((item) => isActive(activePath, item.href, item.exact))}
-            />
-          ) : null}
         </nav>
       </div>
     </div>

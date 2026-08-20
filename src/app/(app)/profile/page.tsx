@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import {
   Bell,
+  CalendarCheck,
+  Images,
   ChevronRight,
   Database,
   Globe,
@@ -53,6 +55,16 @@ export default async function ProfilePage() {
 
   const eventRows = currentEvent
     ? [
+        {
+          href: `/events/${currentEvent.slug}/my`,
+          label: tn('myProgramme'),
+          icon: <CalendarCheck size={20} aria-hidden="true" />,
+        },
+        {
+          href: `/events/${currentEvent.slug}/media`,
+          label: tn('media'),
+          icon: <Images size={20} aria-hidden="true" />,
+        },
         {
           href: `/events/${currentEvent.slug}/style`,
           label: tn('style'),

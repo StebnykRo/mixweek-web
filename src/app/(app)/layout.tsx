@@ -48,11 +48,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: `${base}/programme`, label: t('programme'), icon: 'programme' },
     { href: `${base}/map`, label: t('map'), icon: 'map' },
     ...(winstyleEnabled ? [{ href: `${base}/winstyle`, label: t('winstyle'), icon: 'winstyle' as const }] : []),
+    // Switch event, register for another, or look back at a past one. Profile
+    // is not here: the avatar in the top-right corner already goes there, and
+    // repeating it would cost a tab slot for nothing.
+    { href: '/events', label: t('events'), icon: 'events' as const, exact: true },
   ];
 
+  // Desktop sidebar only. Everything here is also reachable from the profile,
+  // which is where people look for it on a phone.
   const secondaryNav = [
-    { href: '/events', label: t('events') },
-    { href: '/profile', label: t('profile') },
     { href: `${base}/my`, label: t('myProgramme') },
     { href: `${base}/style`, label: t('style') },
     { href: `${base}/travel`, label: t('travel') },
@@ -69,7 +73,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       unreadCount={unread}
       userLabel={session.user.name ?? session.user.email}
       notificationsLabel={t('notifications')}
-      moreLabel={t('more')}
     >
       {children}
     </AppShell>
