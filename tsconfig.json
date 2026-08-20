@@ -20,6 +20,17 @@
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./src/*"], "~tests/*": ["./tests/*"] }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    // TypeScript's wildcards skip directories beginning with a dot, so the
+    // RFC 9116 route under src/app/.well-known/ is invisible to `**/*.ts` and
+    // has to be named outright. Without this it is only ever in the program
+    // when .next/types happens to exist, which made `pnpm lint` pass locally
+    // and fail in CI, and meant the file was never type-checked there.
+    "src/app/.well-known/**/*.ts"
+  ],
   "exclude": ["node_modules", "tests/load"]
 }
