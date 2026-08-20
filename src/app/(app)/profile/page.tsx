@@ -2,7 +2,19 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { Bell, ChevronRight, Database, Globe, LogOut, MonitorSmartphone, ShieldCheck, UserRound } from 'lucide-react';
+import {
+  Bell,
+  ChevronRight,
+  Database,
+  Globe,
+  LifeBuoy,
+  LogOut,
+  MonitorSmartphone,
+  Plane,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+} from 'lucide-react';
 import { getSession } from '@/lib/http/context';
 import { hasConfirmedTotp } from '@/modules/auth/totp';
 import { getTenant } from '@/modules/tenancy/service';
@@ -11,6 +23,7 @@ import { initials } from '@/components/patterns/app-shell';
 import { LocaleSwitcher } from '@/components/patterns/locale-switcher';
 import { SignOutButton } from '@/components/patterns/sign-out-button';
 import { HrContactCard } from '@/components/patterns/hr-contact-card';
+import { withTenant } from '@/lib/db/tenant-client';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Profile' };
@@ -27,7 +40,39 @@ export default async function ProfilePage() {
     getTenant(session.tenantId),
   ]);
 
+  // The design reaches EventStyle, Travel and Help from the profile as well as
+  // from the event tabs, which is where people look for them when they are not
+  // already inside an event.
+  const currentEvent = await withTenant(session.tenantId, (db) =>
+    db.event.findFirst({
+      where: { status: 'PUBLISHED', endsAt: { gte: new Date() }, deletedAt: null },
+      orderBy: { startsAt: 'asc' },
+      select: { slug: true },
+    }),
+  );
+
+  const eventRows = currentEvent
+    ? [
+        {
+          href: `/events/${currentEvent.slug}/style`,
+          label: tn('style'),
+          icon: <Sparkles size={20} aria-hidden="true" />,
+        },
+        {
+          href: `/events/${currentEvent.slug}/travel`,
+          label: tn('travel'),
+          icon: <Plane size={20} aria-hidden="true" />,
+        },
+        {
+          href: `/events/${currentEvent.slug}/help`,
+          label: tn('help'),
+          icon: <LifeBuoy size={20} aria-hidden="true" />,
+        },
+      ]
+    : [];
+
   const rows = [
+    ...eventRows,
     { href: '/profile/notifications', label: t('notifications'), icon: <Bell size={20} aria-hidden="true" /> },
     { href: '/profile/sessions', label: t('sessions'), icon: <MonitorSmartphone size={20} aria-hidden="true" /> },
     { href: '/profile/privacy', label: t('privacy'), icon: <Database size={20} aria-hidden="true" /> },

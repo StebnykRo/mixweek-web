@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import {
+  BookOpen,
   BarChart3,
   Bell,
   CalendarDays,
@@ -45,6 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/settings', label: 'Settings', icon: <Settings size={18} />, action: 'setting:read' },
     { href: '/admin/secrets', label: 'Secrets', icon: <KeyRound size={18} />, action: 'secret:read' },
     { href: '/admin/audit', label: 'Audit log', icon: <ScrollText size={18} />, action: 'audit:read' },
+    { href: '/admin/guide', label: 'How-to guide', icon: <BookOpen size={18} />, action: 'event:read' },
   ] satisfies NavEntry[]).filter((item) => hasPermission(session.role, item.action));
 
   return (
