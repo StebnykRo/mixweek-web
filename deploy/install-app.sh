@@ -234,9 +234,15 @@ cat <<EOF
           --slug=yourco --name="Your Company" \\
           --domain=yourco.com --admin=you@yourco.com
 
-  Sign-in links arrive by email. With SMTP_* empty in .env.production, mail
-  is written to a file instead of sent and no one can log in — fill in the
-  SMTP settings and run: docker compose restart app worker
+  Sign-in is by emailed link, and no mail transport is configured yet, so
+  nothing is sent. To let someone in now:
+
+      docker compose --env-file .env.production -f compose.production.yml \\
+        run --rm --entrypoint '' migrator \\
+        pnpm ops:signin-link --email=you@yourco.com
+
+  That prints a link and a code, valid ten minutes. See deploy/GUIDE.md
+  Part 14 for configuring Resend properly.
 
   Backups run nightly at 03:15 UTC into $HERE/backups.
 ────────────────────────────────────────────────────────────────────────

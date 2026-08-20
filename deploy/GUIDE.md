@@ -996,77 +996,88 @@ twice is safe.
 
 ---
 
-## Part 14 — Set up email
+## Part 14 — Letting people sign in
 
-Signing in works by emailing a link. With no email settings configured the
-application writes messages to a log file instead of sending them, so **nobody
-can sign in until this is done**.
+Signing in works by emailed link. Until a mail transport is configured the
+application sends nothing — and in production it writes nothing to disk
+either, because a sign-in link is a credential and is not allowed to leave the
+process.
 
-### 14.1 Get SMTP details
+So there are two ways in, and you can start with the first.
 
-Five values, from whoever runs your company email or from a sending service
-such as Postmark, SendGrid, Mailgun or Amazon SES:
-
-| Setting | Looks like |
-| --- | --- |
-| Host | `smtp.postmarkapp.com` |
-| Port | `587` |
-| Username | provided by the service |
-| Password | provided by the service |
-| From address | `no-reply@yourcompany.com` |
-
-A dedicated sending service is worth the small cost. Mail sent straight from a
-new server is very often filed as spam, and a sign-in link in a spam folder is
-indistinguishable from a broken application.
-
-### 14.2 Enter them
+### 14.1 Hand out a link yourself (no mail needed)
 
 **[SERVER]**
 
 ```bash
-nano ~/app/deploy/.env.production
+cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml run --rm --entrypoint '' migrator pnpm ops:signin-link --email=SOMEONE@yourcompany.com
 ```
 
-`nano` is a simple editor — arrow keys only, the mouse does nothing. Press
-`Ctrl + W`, type `SMTP_HOST`, press Enter to jump there.
-
-Fill in each value after the `=`, with no spaces around it:
+It prints a link and a six-digit code:
 
 ```
-SMTP_HOST=smtp.postmarkapp.com
-SMTP_PORT=587
-SMTP_USER=your-username-here
-SMTP_PASSWORD=your-password-here
-MAIL_FROM=no-reply@yourcompany.com
+  Sign-in link for you@yourcompany.com (tenant: yourco)
+
+  https://events.sunscript.tech/auth/verify?token=...
+
+  Code if asked:  482913
+  Valid for:      10 minutes, one use
 ```
 
-`Ctrl + O`, Enter, `Ctrl + X`.
+Send both to that person over something private — a direct message, not a
+group chat. **Treat the link like a password**: for the next ten minutes
+anyone holding it can sign in as them.
 
-### 14.3 Restart
+Two things to know:
 
-**[SERVER]**
+- The address must be in a domain that has a tenant (Part 13). Anything else
+  is refused, because there would be no company to sign in to.
+- Issuing a new link cancels the previous one. Only the most recent works.
+
+The person does not need an account first — one is created when they use the
+link, and they join the tenant their email domain belongs to.
+
+This is fine for the first few people. It does not scale, and it means you are
+personally in the loop for every sign-in, so set up mail before rolling out
+widely.
+
+### 14.2 Configure mail properly
+
+The application sends through **Resend**, over its HTTP API. There is no SMTP
+setting — an API key over HTTPS avoids a long-lived password sitting in a
+config file, and lets the key be rotated without a redeploy.
+
+Sign up at resend.com, verify your sending domain, and create an API key. Then
+store it — it goes in the database encrypted, not in a file:
+
+```bash
+cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml run --rm -it --entrypoint '' migrator pnpm ops:rotate-secret --key=mail.resend_api_key --tenant=YOUR_TENANT_ID
+```
+
+It asks for the value and reads it from your keyboard, so the key never
+reaches your shell history or the process list. It cannot be read back
+afterwards — only replaced.
+
+To find `YOUR_TENANT_ID`:
+
+```bash
+cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml exec -T postgres psql -U app_admin -d mixweek -tAc 'SELECT id, slug FROM "Tenant";'
+```
+
+Set the sender name and address from the admin interface under Settings —
+`mail.from_name` and `mail.from_email`. The address must be on the domain you
+verified with Resend, or messages will be rejected.
+
+Then restart:
 
 ```bash
 cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml restart app worker
 ```
 
-### 14.4 Test
+### 14.3 Test
 
-Open **https://events.sunscript.tech** and sign in with the admin address from
-13.2. The link should arrive within a minute. Check spam if it does not.
-
-### 14.5 If email is not ready yet
-
-You can still get in. Request a sign-in link on the website, then:
-
-**[SERVER]**
-
-```bash
-cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml logs --tail 100 app | grep -i "sign-in\|magic\|token"
-```
-
-The link appears in the output. Paste it into your browser. This is for testing
-only, not something to rely on.
+Open **https://events.sunscript.tech**, enter an address in your company
+domain, and the link should arrive within a minute. Check spam if it does not.
 
 ---
 

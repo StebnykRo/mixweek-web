@@ -282,12 +282,26 @@ tenant. `--admin` must be an address inside it and becomes `TENANT_ADMIN`.
 
 ### 4.2 Configure email
 
-Sign-in is by emailed link. With `SMTP_*` empty, the app writes mail to a file
-rather than sending it, which means nobody can log in. Fill in the SMTP
-settings in `.env.production` and restart:
+Sign-in is by emailed link. There is no SMTP setting — the transport is
+Resend's HTTP API, and the key is an encrypted secret in the database rather
+than an environment variable, so it rotates without a redeploy and cannot be
+read back.
+
+Until a key is set nothing is sent, and in production nothing is written to
+disk either (docs/12 §9). To let someone in meanwhile:
 
 ```bash
-docker compose --env-file .env.production -f compose.production.yml restart app worker
+dc run --rm --entrypoint '' migrator pnpm ops:signin-link --email=someone@yourco.com
+```
+
+That prints a link and a code, good for ten minutes and one use. It is a live
+credential — send it privately.
+
+To configure the transport:
+
+```bash
+dc run --rm -it --entrypoint '' migrator pnpm ops:rotate-secret --key=mail.resend_api_key --tenant=<tenantId>
+```
 ```
 
 Until then you can read the sign-in link out of the logs:
