@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  * {
+    min-width: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-size: calc(100% * var(--font-scale, 1));
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.47;
+    margin: 0;
+    /* docs/05 §2 — iOS safe areas for the tab bar and bottom sheets. */
+    padding-bottom: env(safe-area-inset-bottom);
+    overscroll-behavior-y: none;
+  }
+
+  h1, h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
+
+  h3, h4, h5, h6 {
+    font-weight: 700;
+  }
+
+  /* docs/05 §4 — a visible focus ring is non-negotiable. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* docs/05 §6 — every animation stops when the user asks for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  [hidden] { display: none !important; }
+}
+
+@layer components {
+  .live-pulse {
+    animation: mw-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes mw-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-neutral-200) 25%, var(--color-neutral-300) 37%, var(--color-neutral-200) 63%);
+    background-size: 400% 100%;
+    animation: mw-shimmer 1.4s ease infinite;
+  }
+
+  @keyframes mw-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+  }
+
+  /* docs/05 §2 — horizontal chip strips are the only place we scroll sideways. */
+  .chip-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+  .chip-scroll > * { scroll-snap-align: start; flex: 0 0 auto; }
+}

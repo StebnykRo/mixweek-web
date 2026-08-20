@@ -1,0 +1,78 @@
+/*
+ * docs/05-design-system.md §1 — the platform's default brand, and the single
+ * declaration point for every design token.
+ *
+ * These are Tailwind v4 theme variables, so `bg-primary-500` compiles to
+ * `background-color: var(--color-primary-500)` rather than to a literal hex.
+ * That indirection is what lets the active brand override the same custom
+ * properties at request time (docs/04 §3.2) with no rebuild and no FOUC.
+ *
+ * A plain `@theme` block is required here — `@theme inline` would substitute the
+ * values at build time and white-label would stop working.
+ */
+@theme {
+  --color-bg: #f1f3f7;
+  --color-surface: #ffffff;
+  --color-ink: #0b0f2b;
+  --color-ink-muted: #5a6075;
+  --color-divider: #0b0f2b1f;
+  --color-success: #2e9e5b;
+  --color-warning: #d99100;
+  --color-danger: #cf3f35;
+
+  --color-primary-50: #f7f9fe;
+  --color-primary-100: #eef1fe;
+  --color-primary-200: #dbe2fd;
+  --color-primary-300: #b6c4fa;
+  --color-primary-400: #8098f7;
+  --color-primary-500: #2b4af0;
+  --color-primary-600: #3352ee;
+  --color-primary-700: #2440c9;
+  --color-primary-800: #192e93;
+  --color-primary-900: #101e5e;
+
+  --color-secondary-50: #fdfef7;
+  --color-secondary-100: #f7fce3;
+  --color-secondary-200: #edf8c4;
+  --color-secondary-300: #def291;
+  --color-secondary-400: #cdea5b;
+  --color-secondary-500: #c8f04b;
+  --color-secondary-600: #b4d63c;
+  --color-secondary-700: #93b22a;
+  --color-secondary-800: #71891f;
+  --color-secondary-900: #4f6015;
+
+  --color-neutral-50: #ffffff;
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #eef0f5;
+  --color-neutral-300: #dde1ea;
+  --color-neutral-400: #bbc2d1;
+  --color-neutral-500: #98a0b3;
+  --color-neutral-600: #787f93;
+  --color-neutral-700: #5a6075;
+  --color-neutral-800: #3a3f55;
+  --color-neutral-900: #12162e;
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
+
+  --font-display: "Caprasimo", Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --shadow-sm: 0 1px 3px rgb(11 15 43 / 0.1);
+  --shadow-md: 0 3px 10px rgb(11 15 43 / 0.12);
+  --shadow-lg: 0 12px 32px rgb(11 15 43 / 0.18);
+
+  /* docs/05 §2 — mobile-first breakpoints. */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1440px;
+}
+
+:root {
+  /* Not a Tailwind namespace, so it is declared separately. */
+  --font-scale: 1;
+}

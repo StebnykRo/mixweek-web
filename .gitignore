@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+
+# Secrets. .env.example is the template and is tracked; the negation has to
+# come after the broad pattern or git ignores it too.
+.env
+.env.*
+!.env.example
+
+# Development mail file drop (src/lib/mail.ts) — contains sign-in codes.
+.mail/
+
+*.tsbuildinfo
+next-env.d.ts
+playwright-report/
+test-results/
+prisma/*.db
+dump.rdb
+.DS_Store
+.vercel

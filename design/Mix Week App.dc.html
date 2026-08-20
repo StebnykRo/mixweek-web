@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="./ds.css">
+<style>
+  /* SOFTSWISS brand palette override: navy ink, electric blue, acid lime (per screenshot + softswiss.com) */
+  :root {
+    --color-bg: #f1f3f7;
+    --color-surface: #ffffff;
+    --color-text: #0b0f2b;
+    --color-divider: color-mix(in srgb, #0b0f2b 12%, transparent);
+    --color-accent: #2b4af0;
+    --color-accent-100: #eef1fe; --color-accent-200: #dbe2fd; --color-accent-300: #b6c4fa;
+    --color-accent-400: #8098f7; --color-accent-500: #5570f3; --color-accent-600: #3352ee;
+    --color-accent-700: #2440c9; --color-accent-800: #192e93; --color-accent-900: #101e5e;
+    --color-accent-2: #c8f04b;
+    --color-accent-2-100: #f7fce3; --color-accent-2-200: #edf8c4; --color-accent-2-300: #def291;
+    --color-accent-2-400: #cdea5b; --color-accent-2-500: #b4d63c; --color-accent-2-600: #93b22a;
+    --color-accent-2-700: #71891f; --color-accent-2-800: #4f6015; --color-accent-2-900: #333e0e;
+    --color-neutral-100: #ffffff; --color-neutral-200: #eef0f5; --color-neutral-300: #dde1ea;
+    --color-neutral-400: #bbc2d1; --color-neutral-500: #98a0b3; --color-neutral-600: #787f93;
+    --color-neutral-700: #5a6075; --color-neutral-800: #3a3f55; --color-neutral-900: #12162e;
+    --shadow-sm: 0 1px 3px color-mix(in srgb, #0b0f2b 10%, transparent);
+    --shadow-md: 0 3px 10px color-mix(in srgb, #0b0f2b 12%, transparent);
+    --shadow-lg: 0 12px 32px color-mix(in srgb, #0b0f2b 18%, transparent);
+  }
+  body { margin:0; background:var(--color-bg); }
+  a { color: var(--color-accent-700); } a:hover { color: var(--color-accent-600); }
+  ::-webkit-scrollbar { display:none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+</style>
+</helmet>
+<div style="min-height:100vh; display:flex; align-items:flex-start; justify-content:center; padding:32px 16px; font-family:var(--font-body); color:var(--color-text);">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" title="" hint-size="390px,844px">
+<div style="height:100%; display:flex; flex-direction:column; background:var(--color-bg); font-family:var(--font-body); color:var(--color-text);">
+
+  <!-- ═══ ONBOARDING / SSO ═══ -->
+  <sc-if value="{{ scrOnboarding }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1; display:flex; flex-direction:column; padding:24px 28px 28px; min-height:0; overflow-y:auto;">
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:26px;">
+        <div style="width:74px; height:74px; border-radius:50%; background:var(--color-accent); display:flex; align-items:center; justify-content:center; color:var(--color-accent-100); font-family:var(--font-heading); font-size:30px;">✦</div>
+        <div>
+          <div style="font-size:13px; font-weight:700; letter-spacing:2px; color:var(--color-accent-700);">SOFTSWISS</div>
+          <div style="font-family:var(--font-heading); font-size:44px; line-height:1.05; margin-top:6px;">Mix Week</div>
+          <div style="font-size:16px; color:var(--color-neutral-700); margin-top:12px; line-height:1.5;">21–27 October · Limassol. Your programme, map, merch and support — all in one place.</div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <label style="display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--color-neutral-700); cursor:pointer;">
+          <input type="checkbox" checked="{{ termsAccepted }}" onChange="{{ toggleTerms }}" style="accent-color:var(--color-accent); width:18px; height:18px; margin-top:1px;">
+          <span>I accept the <a href="#" onClick="{{ noop }}">Terms of Use</a> and <a href="#" onClick="{{ noop }}">Privacy Policy</a></span>
+        </label>
+        <div onClick="{{ signIn }}" style="border-radius:999px; padding:16px; text-align:center; font-weight:700; font-size:16px; cursor:pointer; background:{{ ssoBg }}; color:{{ ssoFg }}; transition:background .15s;">Continue with SOFTSWISS SSO</div>
+        <div style="text-align:center; font-size:12px; color:var(--color-neutral-600);">Corporate account · English / Русский</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═══ APP ═══ -->
+  <sc-if value="{{ scrApp }}" hint-placeholder-val="{{ true }}">
+  <div style="flex:1; overflow-y:auto; min-height:0;">
+
+    <!-- HOME -->
+    <sc-if value="{{ tabHome }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:8px 20px 24px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding-top:6px;">
+          <div>
+            <div style="font-size:11px; font-weight:700; letter-spacing:2px; color:var(--color-accent-700);">SOFTSWISS</div>
+            <div style="font-family:var(--font-heading); font-size:30px; line-height:1.1;">Mix Week</div>
+          </div>
+          <div onClick="{{ goProfile }}" style="width:42px; height:42px; border-radius:50%; background:var(--color-accent-2-200); color:var(--color-accent-2-800); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; cursor:pointer;">AI</div>
+        </div>
+        <div style="font-size:14px; color:var(--color-neutral-700); margin-top:4px;">Today · Wed 22 Oct</div>
+
+        <sc-if value="{{ showAnnouncement }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:16px; background:var(--color-neutral-900); color:var(--color-neutral-100); border-radius:var(--radius-md); padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:9px; height:9px; border-radius:50%; background:var(--color-accent-400); margin-top:5px; flex-shrink:0; animation:pulse 2s infinite;"></div>
+            <div style="flex:1;">
+              <div style="font-weight:700; font-size:13.5px;">Schedule change</div>
+              <div style="font-size:13px; color:var(--color-neutral-400); margin-top:2px;">5×5 Football moved to 15:00 · Sports Arena.</div>
+            </div>
+            <div onClick="{{ dismissAnnouncement }}" style="color:var(--color-neutral-500); font-size:15px; line-height:1; cursor:pointer; padding:2px;">✕</div>
+          </div>
+        </sc-if>
+
+        <div style="margin-top:20px; display:flex; align-items:center; gap:8px;">
+          <div style="width:9px; height:9px; border-radius:50%; background:var(--color-accent-2-500); animation:pulse 1.6s infinite;"></div>
+          <div style="font-family:var(--font-heading); font-size:18px;">Now</div>
+        </div>
+        <div style="margin-top:10px; background:var(--color-neutral-900); border-radius:var(--radius-lg); padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="font-family:var(--font-heading); font-size:22px; line-height:1.2; color:var(--color-neutral-100);">Team Time</div>
+            <div style="background:var(--color-accent); color:var(--color-accent-100); border-radius:999px; padding:5px 12px; font-size:12px; font-weight:700; white-space:nowrap;">10:00–16:00</div>
+          </div>
+          <div style="margin-top:8px; font-size:13.5px; color:var(--color-neutral-400);">Workshop Hub · department sessions, no sign-up needed</div>
+        </div>
+
+        <div style="margin-top:14px; background:var(--color-accent); border-radius:var(--radius-lg); padding:20px; position:relative; overflow:hidden;">
+          <div style="position:absolute; right:-30px; top:-30px; width:130px; height:130px; border-radius:50%; background:var(--color-accent-400); opacity:.5;"></div>
+          <div style="position:relative;">
+            <div style="display:inline-block; background:var(--color-accent-2); color:var(--color-neutral-900); border-radius:999px; padding:4px 11px; font-size:11px; font-weight:700; letter-spacing:1px;">FEATURED · 18:30</div>
+            <div style="font-family:var(--font-heading); font-size:26px; color:var(--color-accent-100); margin-top:10px;">Gala Night</div>
+            <div style="font-size:13.5px; color:var(--color-accent-200); margin-top:4px;">Main Stage · dress code: Evening Sparkle</div>
+            <div onClick="{{ goEventStyle }}" style="margin-top:14px; display:inline-flex; align-items:center; gap:6px; background:var(--color-accent-900); color:var(--color-accent-100); border-radius:999px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer;">Dress code & rules →</div>
+          </div>
+        </div>
+
+        <div style="margin-top:22px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-family:var(--font-heading); font-size:18px;">Next</div>
+          <div onClick="{{ goProgramme }}" style="font-size:13px; font-weight:700; color:var(--color-accent-700); cursor:pointer;">Full programme →</div>
+        </div>
+        <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+          <sc-for list="{{ nextEvents }}" as="ev" hint-placeholder-count="3">
+            <div style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:13px 15px; display:flex; align-items:center; gap:12px; box-shadow:var(--shadow-sm);">
+              <div style="width:44px; text-align:center; flex-shrink:0; font-weight:700; font-size:14px;">{{ ev.time }}</div>
+              <div style="width:1px; align-self:stretch; background:var(--color-divider);"></div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:14px;">{{ ev.title }}</div>
+                <div style="font-size:12px; color:var(--color-neutral-600); margin-top:1px;">{{ ev.location }}</div>
+              </div>
+              <div style="background:{{ ev.catBg }}; color:{{ ev.catFg }}; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap;">{{ ev.category }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- PROGRAMME -->
+    <sc-if value="{{ tabProgramme }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 0 24px;">
+        <div style="padding:6px 20px 0; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-family:var(--font-heading); font-size:26px;">Programme</div>
+          <div onClick="{{ toggleMineOnly }}" style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; cursor:pointer; border-radius:999px; padding:7px 14px; background:{{ mineBg }}; color:{{ mineFg }};">♥ Mine {{ savedCountLabel }}</div>
+        </div>
+        <div style="display:flex; gap:6px; overflow-x:auto; padding:14px 20px 2px;">
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="7">
+            <div onClick="{{ d.pick }}" style="flex-shrink:0; text-align:center; border-radius:var(--radius-md); padding:8px 13px; cursor:pointer; background:{{ d.bg }}; color:{{ d.fg }};">
+              <div style="font-size:11px; font-weight:600; opacity:.7;">{{ d.dow }}</div>
+              <div style="font-weight:700; font-size:16px;">{{ d.num }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex; gap:6px; overflow-x:auto; padding:10px 20px;">
+          <sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+            <div onClick="{{ c.pick }}" style="flex-shrink:0; border-radius:999px; padding:6px 14px; font-size:12.5px; font-weight:700; cursor:pointer; background:{{ c.bg }}; color:{{ c.fg }};">{{ c.name }}</div>
+          </sc-for>
+        </div>
+        <div style="padding:6px 20px 0; display:flex; flex-direction:column; gap:8px;">
+          <sc-if value="{{ noEvents }}" hint-placeholder-val="{{ false }}">
+            <div style="text-align:center; padding:44px 24px; color:var(--color-neutral-600); font-size:14px; line-height:1.5;">Nothing here yet.<br>Tap ♥ on events to build your schedule.</div>
+          </sc-if>
+          <sc-for list="{{ filteredEvents }}" as="ev" hint-placeholder-count="5">
+            <div style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:14px; display:flex; gap:12px; align-items:flex-start; box-shadow:var(--shadow-sm);">
+              <div style="width:44px; flex-shrink:0; text-align:center;">
+                <div style="font-weight:700; font-size:14px;">{{ ev.time }}</div>
+                <div style="font-size:11px; color:var(--color-neutral-500);">{{ ev.dur }}</div>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; font-size:14.5px; line-height:1.3;">{{ ev.title }}</div>
+                <div style="font-size:12px; color:var(--color-neutral-600); margin-top:3px;">{{ ev.location }}</div>
+                <div style="margin-top:7px; display:inline-block; background:{{ ev.catBg }}; color:{{ ev.catFg }}; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:700;">{{ ev.category }}</div>
+              </div>
+              <div onClick="{{ ev.toggle }}" style="width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; flex-shrink:0; background:{{ ev.saveBg }}; color:{{ ev.saveFg }};">{{ ev.saveIcon }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- MAP -->
+    <sc-if value="{{ tabMap }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 20px 24px;">
+        <div style="font-family:var(--font-heading); font-size:26px; padding-top:6px;">Map</div>
+        <div style="margin-top:14px; background:var(--color-neutral-200); border-radius:var(--radius-lg); height:300px; position:relative; overflow:hidden;">
+          <div style="position:absolute; left:-40px; top:30px; width:180px; height:140px; border-radius:50%; background:var(--color-accent-2-200); opacity:.7;"></div>
+          <div style="position:absolute; right:-30px; top:110px; width:150px; height:150px; border-radius:50%; background:var(--color-neutral-300); opacity:.6;"></div>
+          <div style="position:absolute; left:0; right:0; bottom:0; height:58px; background:var(--color-accent-2-300); border-radius:60% 40% 0 0 / 30% 30% 0 0;"></div>
+          <div style="position:absolute; left:18px; bottom:12px; font-size:11px; font-weight:700; color:var(--color-accent-2-800);">Beach · Beach Arena</div>
+          <sc-for list="{{ mapPins }}" as="p" hint-placeholder-count="7">
+            <div onClick="{{ p.pick }}" style="position:absolute; left:{{ p.x }}; top:{{ p.y }}; transform:translate(-50%,-100%); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; z-index:{{ p.z }};">
+              <div style="font-size:10.5px; font-weight:700; background:{{ p.labelBg }}; color:{{ p.labelFg }}; border-radius:999px; padding:3px 8px; white-space:nowrap; box-shadow:var(--shadow-sm);">{{ p.name }}</div>
+              <div style="width:14px; height:14px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); background:{{ p.pinBg }}; border:2.5px solid var(--color-neutral-100);"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:14px; background:var(--color-neutral-100); border-radius:var(--radius-md); padding:16px; box-shadow:var(--shadow-sm);">
+          <div style="font-size:11px; font-weight:700; letter-spacing:1px; color:var(--color-accent-700);">{{ selPin.kicker }}</div>
+          <div style="font-family:var(--font-heading); font-size:19px; margin-top:4px;">{{ selPin.name }}</div>
+          <div style="font-size:13px; color:var(--color-neutral-700); margin-top:5px; line-height:1.45;">{{ selPin.desc }}</div>
+        </div>
+        <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px;">
+          <sc-for list="{{ mapLegend }}" as="l" hint-placeholder-count="4">
+            <div style="display:flex; align-items:center; gap:6px; background:var(--color-neutral-100); border-radius:999px; padding:5px 11px; font-size:11.5px; font-weight:600; color:var(--color-neutral-700);">
+              <div style="width:8px; height:8px; border-radius:50%; background:{{ l.color }};"></div>{{ l.name }}
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- WINSTYLE -->
+    <sc-if value="{{ tabWinstyle }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 20px 24px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; padding-top:6px;">
+          <div style="font-family:var(--font-heading); font-size:26px;">WinStyle</div>
+          <div style="font-size:12.5px; color:var(--color-neutral-600);">Pickup: WinStyle corner, Lobby</div>
+        </div>
+        <sc-if value="{{ hasOrder }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px; background:var(--color-accent-2-200); border-radius:var(--radius-md); padding:14px 16px; display:flex; align-items:center; gap:14px;">
+            <div style="width:56px; height:56px; background:var(--color-neutral-100); border-radius:var(--radius-sm); flex-shrink:0; display:grid; grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(5,1fr); gap:2px; padding:7px; box-sizing:border-box;">
+              <sc-for list="{{ qrCells }}" as="q" hint-placeholder-count="25"><div style="background:{{ q.c }}; border-radius:1px;"></div></sc-for>
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:700; font-size:14px; color:var(--color-accent-2-900);">Order {{ orderId }} · {{ orderCountLabel }}</div>
+              <div style="font-size:12.5px; color:var(--color-accent-2-800); margin-top:2px;">Ready for pickup · show this QR on-site</div>
+            </div>
+          </div>
+        </sc-if>
+        <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <sc-for list="{{ merch }}" as="m" hint-placeholder-count="4">
+            <div style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:12px; box-shadow:var(--shadow-sm); display:flex; flex-direction:column; gap:8px;">
+              <div style="height:92px; border-radius:var(--radius-sm); background:{{ m.tileBg }}; display:flex; align-items:center; justify-content:center; font-family:var(--font-heading); font-size:34px; color:{{ m.tileFg }};">{{ m.glyph }}</div>
+              <div>
+                <div style="font-weight:700; font-size:13.5px;">{{ m.name }}</div>
+                <div style="font-size:12px; color:var(--color-neutral-600); margin-top:1px;">{{ m.price }} · {{ m.stock }}</div>
+              </div>
+              <sc-if value="{{ m.hasSizes }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; gap:4px;">
+                  <sc-for list="{{ m.sizes }}" as="s" hint-placeholder-count="4">
+                    <div onClick="{{ s.pick }}" style="flex:1; text-align:center; border-radius:999px; padding:4px 0; font-size:11px; font-weight:700; cursor:pointer; background:{{ s.bg }}; color:{{ s.fg }};">{{ s.name }}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div onClick="{{ m.reserve }}" style="border-radius:999px; padding:8px 0; text-align:center; font-size:12.5px; font-weight:700; cursor:pointer; background:{{ m.btnBg }}; color:{{ m.btnFg }};">{{ m.btnLabel }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- PROFILE + sub-screens -->
+    <sc-if value="{{ tabProfile }}" hint-placeholder-val="{{ false }}">
+
+      <sc-if value="{{ subMain }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:8px 20px 24px;">
+          <div style="font-family:var(--font-heading); font-size:26px; padding-top:6px;">Profile</div>
+          <div style="margin-top:14px; background:var(--color-neutral-100); border-radius:var(--radius-md); padding:16px; display:flex; align-items:center; gap:14px; box-shadow:var(--shadow-sm);">
+            <div style="width:54px; height:54px; border-radius:50%; background:var(--color-accent-2-200); color:var(--color-accent-2-800); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;">AI</div>
+            <div>
+              <div style="font-weight:700; font-size:16px;">Alexandra Ivanova</div>
+              <div style="font-size:12.5px; color:var(--color-neutral-600); margin-top:2px;">Product & Technology · Team Falcon</div>
+            </div>
+          </div>
+          <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ profileRows }}" as="r" hint-placeholder-count="7">
+              <div onClick="{{ r.pick }}" style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer;">
+                <div style="width:30px; height:30px; border-radius:50%; background:{{ r.iconBg }}; color:{{ r.iconFg }}; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;">{{ r.icon }}</div>
+                <div style="flex:1; font-weight:600; font-size:14px; color:{{ r.color }};">{{ r.name }}</div>
+                <div style="font-size:12.5px; color:var(--color-neutral-600);">{{ r.value }}</div>
+                <sc-if value="{{ r.chevron }}" hint-placeholder-val="{{ true }}"><div style="color:var(--color-neutral-500); font-size:14px;">›</div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ subEventstyle }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:8px 20px 24px;">
+          <div onClick="{{ backToProfile }}" style="padding-top:8px; font-size:13.5px; font-weight:700; color:var(--color-accent-700); cursor:pointer;">‹ Back</div>
+          <div style="font-family:var(--font-heading); font-size:26px; margin-top:6px;">EventStyle</div>
+          <div style="margin-top:14px; background:var(--color-accent-2-200); border-radius:var(--radius-lg); padding:18px;">
+            <div style="font-family:var(--font-heading); font-size:19px; color:var(--color-accent-2-900);">Gala Night · Sun 26 Oct</div>
+            <div style="font-size:13.5px; color:var(--color-accent-2-800); margin-top:6px; line-height:1.5;">Dress code: Evening Sparkle. Doors 18:30, Main Stage. Seating by team — check your table at the entrance.</div>
+          </div>
+          <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ styleRules }}" as="r" hint-placeholder-count="4">
+              <div style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:14px 16px;">
+                <div style="font-weight:700; font-size:14px;">{{ r.title }}</div>
+                <div style="font-size:13px; color:var(--color-neutral-700); margin-top:3px; line-height:1.45;">{{ r.body }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:16px; font-family:var(--font-heading); font-size:18px;">Packing checklist</div>
+          <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+            <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="5">
+              <div onClick="{{ c.toggle }}" style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:12px 16px; display:flex; align-items:center; gap:12px; cursor:pointer;">
+                <div style="width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; background:{{ c.bg }}; color:{{ c.fg }};">{{ c.mark }}</div>
+                <div style="font-size:13.5px; font-weight:600; text-decoration:{{ c.deco }}; color:{{ c.color }};">{{ c.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ subTravel }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:8px 20px 24px;">
+          <div onClick="{{ backToProfile }}" style="padding-top:8px; font-size:13.5px; font-weight:700; color:var(--color-accent-700); cursor:pointer;">‹ Back</div>
+          <div style="font-family:var(--font-heading); font-size:26px; margin-top:6px;">Travel & logistics</div>
+          <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ travelRows }}" as="t" hint-placeholder-count="5">
+              <div style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:14px 16px; display:flex; gap:12px; align-items:flex-start;">
+                <div style="width:30px; height:30px; border-radius:50%; background:var(--color-accent-200); color:var(--color-accent-800); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0;">{{ t.icon }}</div>
+                <div>
+                  <div style="font-weight:700; font-size:14px;">{{ t.title }}</div>
+                  <div style="font-size:13px; color:var(--color-neutral-700); margin-top:3px; line-height:1.45;">{{ t.body }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ subHelp }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:8px 20px 24px;">
+          <div onClick="{{ backToProfile }}" style="padding-top:8px; font-size:13.5px; font-weight:700; color:var(--color-accent-700); cursor:pointer;">‹ Back</div>
+          <div style="font-family:var(--font-heading); font-size:26px; margin-top:6px;">Help</div>
+          <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+            <sc-for list="{{ helpRows }}" as="h" hint-placeholder-count="4">
+              <div style="background:var(--color-neutral-100); border-radius:var(--radius-md); padding:14px 16px; display:flex; align-items:center; gap:12px;">
+                <div style="width:30px; height:30px; border-radius:50%; background:{{ h.iconBg }}; color:{{ h.iconFg }}; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0;">{{ h.icon }}</div>
+                <div style="flex:1;">
+                  <div style="font-weight:700; font-size:14px;">{{ h.title }}</div>
+                  <div style="font-size:12.5px; color:var(--color-neutral-600); margin-top:1px;">{{ h.who }}</div>
+                </div>
+                <div style="background:var(--color-accent-2-200); color:var(--color-accent-2-800); border-radius:999px; padding:6px 13px; font-size:12px; font-weight:700; cursor:pointer;">Call</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px; background:var(--color-accent-200); border-radius:var(--radius-md); padding:14px 16px;">
+            <div style="font-weight:700; font-size:14px; color:var(--color-accent-900);">Urgent support · 24/7</div>
+            <div style="font-size:13px; color:var(--color-accent-800); margin-top:2px;">+357 99 000 111 · care@softswiss.com</div>
+          </div>
+        </div>
+      </sc-if>
+    </sc-if>
+
+  </div>
+
+  <!-- TAB BAR -->
+  <div style="flex-shrink:0; display:flex; background:var(--color-neutral-100); border-top:1px solid var(--color-divider); padding:8px 6px 4px;">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <div onClick="{{ t.pick }}" style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0;">
+        <div style="width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; background:{{ t.iconBg }}; color:{{ t.iconFg }};">{{ t.icon }}</div>
+        <div style="font-size:10px; font-weight:700; color:{{ t.labelColor }};">{{ t.name }}</div>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+</div>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: &quot;440px&quot;, &quot;height&quot;: &quot;920px&quot;}, &quot;showAnnouncement&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Home&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'app', tab: 'home', day: 22, cat: 'All', mineOnly: false,
+    saved: {'w1': true}, sub: 'main', terms: false, announce: true,
+    reserved: {}, sizeSel: {}, pin: 'main', checks: {0: true}
+  };
+
+  events() {
+    return [
+      {id:'a1', day:21, time:'12:00', dur:'3h', title:'Arrivals & check-in', location:'Hotel Lobby', category:'Team'},
+      {id:'a2', day:21, time:'19:00', dur:'2h', title:'Welcome Dinner', location:'Terrace Restaurant', category:'Party'},
+      {id:'w1', day:22, time:'16:30', dur:'1h', title:'Team Collaboration Workshop', location:'Workshop Hub', category:'Workshop'},
+      {id:'s1', day:22, time:'15:00', dur:'2h', title:'5×5 Football Tournament', location:'Sports Arena', category:'Sport'},
+      {id:'g1', day:22, time:'18:30', dur:'4h', title:'Gala Night', location:'Main Stage', category:'Party'},
+      {id:'w2', day:23, time:'10:00', dur:'1.5h', title:'Product Vision Talk', location:'Main Stage', category:'Workshop'},
+      {id:'s2', day:23, time:'14:00', dur:'2h', title:'Beach Volleyball', location:'Beach Arena', category:'Sport'},
+      {id:'t1', day:23, time:'17:00', dur:'2h', title:'Team Quiz Evening', location:'Care Zone', category:'Team'},
+      {id:'w3', day:24, time:'11:00', dur:'2h', title:'AI in iGaming Panel', location:'Workshop Hub', category:'Workshop'},
+      {id:'p1', day:24, time:'21:00', dur:'3h', title:'Neon Beach Party', location:'Beach Arena', category:'Party'},
+      {id:'s3', day:25, time:'09:00', dur:'3h', title:'Morning Hike & Yoga', location:'Transfer Point A', category:'Sport'},
+      {id:'t2', day:25, time:'15:00', dur:'2h', title:'Department Mixers', location:'Care Zone', category:'Team'},
+      {id:'w4', day:26, time:'10:00', dur:'1h', title:'Leadership AMA', location:'Main Stage', category:'Workshop'},
+      {id:'p2', day:26, time:'19:00', dur:'4h', title:'Closing Awards & Party', location:'Main Stage', category:'Party'},
+      {id:'a3', day:27, time:'10:00', dur:'—', title:'Check-out & transfers', location:'Hotel Lobby', category:'Team'}
+    ];
+  }
+
+  catColors(cat) {
+    const m = {
+      Workshop: ['var(--color-accent-200)', 'var(--color-accent-800)'],
+      Sport: ['var(--color-accent-2-200)', 'var(--color-accent-2-800)'],
+      Party: ['var(--color-accent-400)', 'var(--color-accent-900)'],
+      Team: ['var(--color-neutral-200)', 'var(--color-neutral-800)']
+    };
+    return m[cat] || m.Team;
+  }
+
+  renderVals() {
+    const S = this.state, set = (p) => this.setState(p);
+    const showAnn = (this.props.showAnnouncement ?? true) && S.announce;
+    const decorate = (ev) => {
+      const [catBg, catFg] = this.catColors(ev.category);
+      const saved = !!S.saved[ev.id];
+      return {...ev, catBg, catFg,
+        saveIcon: saved ? '♥' : '♡',
+        saveBg: saved ? 'var(--color-accent)' : 'var(--color-neutral-200)',
+        saveFg: saved ? 'var(--color-accent-100)' : 'var(--color-neutral-600)',
+        toggle: () => set(s => ({saved: {...s.saved, [ev.id]: !s.saved[ev.id]}}))};
+    };
+    const all = this.events();
+    let filtered = all.filter(e => e.day === S.day);
+    if (S.cat !== 'All') filtered = filtered.filter(e => e.category === S.cat);
+    if (S.mineOnly) filtered = filtered.filter(e => S.saved[e.id]);
+    const savedCount = all.filter(e => S.saved[e.id]).length;
+
+    const dows = {21:'Tue',22:'Wed',23:'Thu',24:'Fri',25:'Sat',26:'Sun',27:'Mon'};
+    const days = [21,22,23,24,25,26,27].map(n => ({
+      num: n, dow: dows[n],
+      bg: S.day === n ? 'var(--color-neutral-900)' : 'var(--color-neutral-100)',
+      fg: S.day === n ? 'var(--color-neutral-100)' : 'var(--color-text)',
+      pick: () => set({day: n})
+    }));
+    const cats = ['All','Workshop','Sport','Party','Team'].map(c => ({
+      name: c,
+      bg: S.cat === c ? 'var(--color-accent)' : 'var(--color-neutral-100)',
+      fg: S.cat === c ? 'var(--color-accent-100)' : 'var(--color-neutral-700)',
+      pick: () => set({cat: c})
+    }));
+
+    const pins = [
+      {id:'main', name:'Main Stage', x:'50%', y:'40%', kicker:'STAGE', kind:'Stages', desc:'Keynotes, Gala Night and the closing party. Doors open 30 min before each event.'},
+      {id:'hub', name:'Workshop Hub', x:'26%', y:'62%', kicker:'WORKSHOPS', kind:'Workshops', desc:'All workshops and team sessions. Rooms Hub 1–4, second floor.'},
+      {id:'care', name:'Care Zone', x:'68%', y:'18%', kicker:'CARE', kind:'Care', desc:'Quiet space, first aid, chargers and coffee. Open 09:00–22:00.'},
+      {id:'win', name:'WinStyle', x:'78%', y:'55%', kicker:'MERCH', kind:'Merch', desc:'Merch pickup and fitting. Show your order QR at the counter.'},
+      {id:'hotel', name:'Hotel', x:'16%', y:'26%', kicker:'STAY', kind:'Hotels', desc:'Check-in from 14:00. Front desk 24/7, luggage room on day of departure.'},
+      {id:'rest', name:'Terrace', x:'42%', y:'80%', kicker:'FOOD', kind:'Restaurants', desc:'Breakfast 07:00–10:30, dinner 19:00–22:00. Dietary menus at station 3.'},
+      {id:'transfer', name:'Transfer A', x:'88%', y:'82%', kicker:'TRANSFER', kind:'Transfers', desc:'Airport shuttles and excursion departures. Arrive 10 min early.'}
+    ];
+    const kindColor = {Stages:'var(--color-accent)', Workshops:'var(--color-accent-600)', Care:'var(--color-accent-2-500)', Merch:'var(--color-neutral-800)', Hotels:'var(--color-neutral-600)', Restaurants:'var(--color-accent-2-700)', Transfers:'var(--color-neutral-500)'};
+    const mapPins = pins.map(p => ({...p,
+      z: S.pin === p.id ? 3 : 2,
+      labelBg: S.pin === p.id ? 'var(--color-neutral-900)' : 'var(--color-neutral-100)',
+      labelFg: S.pin === p.id ? 'var(--color-neutral-100)' : 'var(--color-text)',
+      pinBg: kindColor[p.kind],
+      pick: () => set({pin: p.id})
+    }));
+    const selPin = pins.find(p => p.id === S.pin) || pins[0];
+    const mapLegend = Object.keys(kindColor).map(k => ({name: k, color: kindColor[k]}));
+
+    const merchData = [
+      {id:'hoodie', name:'WinStyle Hoodie', price:'70 EUR', stock:'In stock', glyph:'✦', sizes:['S','M','L','XL'], tileBg:'var(--color-neutral-900)', tileFg:'var(--color-neutral-100)'},
+      {id:'tee', name:'WinStyle T-Shirt', price:'35 EUR', stock:'In stock', glyph:'✦', sizes:['S','M','L','XL'], tileBg:'var(--color-accent-2-300)', tileFg:'var(--color-accent-2-900)'},
+      {id:'cap', name:'WinStyle Cap', price:'25 EUR', stock:'Few left', glyph:'✦', sizes:null, tileBg:'var(--color-accent-300)', tileFg:'var(--color-accent-900)'},
+      {id:'bottle', name:'WinStyle Bottle', price:'20 EUR', stock:'In stock', glyph:'✦', sizes:null, tileBg:'var(--color-neutral-300)', tileFg:'var(--color-neutral-800)'}
+    ];
+    const merch = merchData.map(m => {
+      const reserved = !!S.reserved[m.id];
+      return {...m, hasSizes: !!m.sizes,
+        sizes: (m.sizes || []).map(sz => ({name: sz,
+          bg: S.sizeSel[m.id] === sz ? 'var(--color-neutral-900)' : 'var(--color-neutral-200)',
+          fg: S.sizeSel[m.id] === sz ? 'var(--color-neutral-100)' : 'var(--color-neutral-700)',
+          pick: () => set(s => ({sizeSel: {...s.sizeSel, [m.id]: sz}}))})),
+        btnLabel: reserved ? 'Reserved ✓' : 'Reserve',
+        btnBg: reserved ? 'var(--color-neutral-900)' : 'var(--color-accent-2)',
+        btnFg: reserved ? 'var(--color-accent-2)' : 'var(--color-neutral-900)',
+        reserve: () => set(s => ({reserved: {...s.reserved, [m.id]: !s.reserved[m.id]}}))};
+    });
+    const orderCount = Object.values(S.reserved).filter(Boolean).length;
+    let seed = 7;
+    const qrCells = Array.from({length: 25}, (_, i) => {
+      seed = (seed * 31 + i) % 97;
+      return {c: (seed % 2 || i === 0 || i === 4 || i === 20) ? 'var(--color-neutral-900)' : 'var(--color-neutral-100)'};
+    });
+
+    const profileRows = [
+      {name:'HR contact', icon:'☎', value:'Maria K.', pick: () => set({sub:'help'})},
+      {name:'EventStyle & dress code', icon:'✦', pick: () => set({sub:'eventstyle'})},
+      {name:'Travel & logistics', icon:'✈', pick: () => set({sub:'travel'})},
+      {name:'Help & support', icon:'?', pick: () => set({sub:'help'})},
+      {name:'Language', icon:'Aa', value:'English', pick: () => {}},
+      {name:'Push notifications', icon:'◉', value:'On', pick: () => {}},
+      {name:'Privacy & Terms', icon:'§', pick: () => {}},
+      {name:'App version', icon:'i', value:'1.0.0', chevron:false, pick: () => {}},
+      {name:'Log out', icon:'←', color:'var(--color-accent-700)', iconBg:'var(--color-accent-200)', iconFg:'var(--color-accent-800)', chevron:false, pick: () => set({screen:'onboarding', terms:false})}
+    ].map(r => ({chevron: true, value:'', color:'var(--color-text)', iconBg:'var(--color-neutral-200)', iconFg:'var(--color-neutral-700)', ...r}));
+
+    const styleRules = [
+      {title:'Daytime', body:'Smart casual. Comfortable shoes — most venues are a 5–10 min walk apart.'},
+      {title:'Sports activities', body:'Sportswear and trainers. Towels and water provided at the arena.'},
+      {title:'Gala Night', body:'Evening Sparkle: cocktail dresses, suits, a touch of shine. No sportswear.'},
+      {title:'Beach party', body:'Casual beachwear. The party is on sand — leave the heels at the hotel.'}
+    ];
+    const checkItems = ['Passport / ID', 'Gala outfit', 'Sportswear & trainers', 'Swimwear', 'EU power adapter', 'Sunscreen'];
+    const checklist = checkItems.map((name, i) => {
+      const on = !!S.checks[i];
+      return {name,
+        mark: on ? '✓' : '',
+        bg: on ? 'var(--color-accent-2-500)' : 'var(--color-neutral-200)',
+        fg: 'var(--color-neutral-100)',
+        deco: on ? 'line-through' : 'none',
+        color: on ? 'var(--color-neutral-500)' : 'var(--color-text)',
+        toggle: () => set(s => ({checks: {...s.checks, [i]: !s.checks[i]}}))};
+    });
+
+    const travelRows = [
+      {icon:'✈', title:'Airports & arrival', body:'Larnaca (LCA) and Paphos (PFO). Meet & greet at arrivals with a Mix Week sign.'},
+      {icon:'⇄', title:'Transfers', body:'Shuttles every 30 min from Transfer Point A. Airport transfers by personal schedule — check your email.'},
+      {icon:'⌂', title:'Hotel & check-in', body:'Parklane Resort. Check-in from 14:00, check-out by 12:00 on 27 Oct. Rooms under your full name.'},
+      {icon:'✉', title:'Documents', body:'Booking confirmations and insurance were sent to your corporate email on 10 Oct.'},
+      {icon:'☎', title:'Logistics desk', body:'Lobby, 08:00–20:00 daily · logistics@softswiss.com'}
+    ];
+    const helpRows = [
+      {icon:'☺', title:'HR contact', who:'Maria K. · people@softswiss.com', iconBg:'var(--color-accent-2-200)', iconFg:'var(--color-accent-2-800)'},
+      {icon:'▦', title:'Programme support', who:'Event team · schedule questions', iconBg:'var(--color-accent-200)', iconFg:'var(--color-accent-800)'},
+      {icon:'⇄', title:'Logistics support', who:'Transfers, hotels, luggage', iconBg:'var(--color-neutral-200)', iconFg:'var(--color-neutral-700)'}
+    ];
+
+    const tabs = [
+      {id:'home', name:'Home', icon:'⌂'},
+      {id:'programme', name:'Programme', icon:'▦'},
+      {id:'map', name:'Map', icon:'◎'},
+      {id:'winstyle', name:'WinStyle', icon:'✦'},
+      {id:'profile', name:'Profile', icon:'☺'}
+    ].map(t => ({...t,
+      iconBg: S.tab === t.id ? 'var(--color-accent)' : 'transparent',
+      iconFg: S.tab === t.id ? 'var(--color-accent-100)' : 'var(--color-neutral-600)',
+      labelColor: S.tab === t.id ? 'var(--color-accent-700)' : 'var(--color-neutral-600)',
+      pick: () => set({tab: t.id, sub: 'main'})
+    }));
+
+    const nextEvents = all.filter(e => e.day === 22 && e.time > '12:00').slice(0, 3).map(decorate);
+
+    return {
+      scrOnboarding: S.screen === 'onboarding', scrApp: S.screen === 'app',
+      tabHome: S.tab === 'home', tabProgramme: S.tab === 'programme', tabMap: S.tab === 'map',
+      tabWinstyle: S.tab === 'winstyle', tabProfile: S.tab === 'profile',
+      subMain: S.sub === 'main', subEventstyle: S.sub === 'eventstyle', subTravel: S.sub === 'travel', subHelp: S.sub === 'help',
+      showAnnouncement: showAnn,
+      dismissAnnouncement: () => set({announce: false}),
+      goProgramme: () => set({tab: 'programme'}),
+      goProfile: () => set({tab: 'profile', sub: 'main'}),
+      goEventStyle: () => set({tab: 'profile', sub: 'eventstyle'}),
+      backToProfile: () => set({sub: 'main'}),
+      toggleTerms: () => set(s => ({terms: !s.terms})),
+      termsAccepted: S.terms,
+      noop: (e) => e && e.preventDefault && e.preventDefault(),
+      signIn: () => { if (S.terms) set({screen: 'app', tab: 'home'}); },
+      ssoBg: S.terms ? 'var(--color-accent)' : 'var(--color-neutral-300)',
+      ssoFg: S.terms ? 'var(--color-accent-100)' : 'var(--color-neutral-600)',
+      nextEvents, days, cats,
+      filteredEvents: filtered.map(decorate),
+      noEvents: filtered.length === 0,
+      mineOnly: S.mineOnly,
+      toggleMineOnly: () => set(s => ({mineOnly: !s.mineOnly})),
+      mineBg: S.mineOnly ? 'var(--color-accent)' : 'var(--color-neutral-100)',
+      mineFg: S.mineOnly ? 'var(--color-accent-100)' : 'var(--color-neutral-700)',
+      savedCountLabel: savedCount ? '(' + savedCount + ')' : '',
+      mapPins, selPin, mapLegend,
+      merch, qrCells,
+      hasOrder: orderCount > 0,
+      orderId: '#MW-0482',
+      orderCountLabel: orderCount + (orderCount === 1 ? ' item' : ' items'),
+      profileRows, styleRules, checklist, travelRows, helpRows, tabs
+    };
+  }
+}
+</script>
+</body>
+</html>

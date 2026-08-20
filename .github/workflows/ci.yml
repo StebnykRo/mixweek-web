@@ -1,0 +1,187 @@
+# docs/01-architecture.md §9 — the pipeline that gates a merge.
+# A red step here blocks the merge; docs/12 §14 is the checklist behind it.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  static:
+    name: Types, lint, unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      # Throwaway keys, generated per run. Nothing they protect outlives the
+      # job, and a literal in the workflow would be indistinguishable from a
+      # leaked one — to a scanner and to a reader.
+      - name: Generate ephemeral bootstrap keys
+        run: |
+          echo "AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo "APP_MASTER_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - run: pnpm test
+        env:
+          APP_URL: http://localhost:3000
+
+  integration:
+    name: Integration (Postgres + RLS)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app_admin
+          POSTGRES_PASSWORD: app_admin_dev
+          POSTGRES_DB: mixweek_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app_admin"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+
+      # The app connects as app_user precisely so RLS applies to it; creating
+      # that role is part of the setup, not an afterthought.
+      - name: Create the runtime role
+        run: |
+          PGPASSWORD=app_admin_dev psql -h localhost -U app_admin -d mixweek_test \
+            -c "CREATE ROLE app_user LOGIN PASSWORD 'app_user_dev';"
+
+      - name: Generate ephemeral bootstrap keys
+        run: |
+          echo "AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo "APP_MASTER_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - run: pnpm test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://app_user:app_user_dev@localhost:5432/mixweek_test?schema=public
+          TEST_DIRECT_DATABASE_URL: postgresql://app_admin:app_admin_dev@localhost:5432/mixweek_test?schema=public
+          APP_URL: http://localhost:3000
+
+  e2e:
+    name: End-to-end, a11y and offline
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app_admin
+          POSTGRES_PASSWORD: app_admin_dev
+          POSTGRES_DB: mixweek_dev
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app_admin"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: valkey/valkey:8
+        ports: ['6379:6379']
+    env:
+      DATABASE_URL: postgresql://app_user:app_user_dev@localhost:5432/mixweek_dev?schema=public
+      DIRECT_DATABASE_URL: postgresql://app_admin:app_admin_dev@localhost:5432/mixweek_dev?schema=public
+      REDIS_URL: redis://localhost:6379
+      APP_URL: http://localhost:3310
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Generate ephemeral bootstrap keys
+        run: |
+          echo "AUTH_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo "APP_MASTER_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Create the runtime role
+        run: |
+          PGPASSWORD=app_admin_dev psql -h localhost -U app_admin -d mixweek_dev \
+            -c "CREATE ROLE app_user LOGIN PASSWORD 'app_user_dev';"
+
+      - run: pnpm prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://app_admin:app_admin_dev@localhost:5432/mixweek_dev?schema=public
+      - run: pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://app_admin:app_admin_dev@localhost:5432/mixweek_dev?schema=public
+      - run: pnpm build
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  security:
+    name: Dependencies, secrets, static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # docs/12 §11 — high or critical blocks the merge.
+      - name: Dependency audit
+        run: pnpm audit --audit-level=high
+
+      # Secrets in the history, not just in the diff.
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Semgrep
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/typescript
+            p/react
+            p/secrets
+
+      - name: SBOM
+        run: pnpm dlx @cyclonedx/cyclonedx-npm --output-file sbom.json || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+          retention-days: 90

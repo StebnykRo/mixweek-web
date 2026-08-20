@@ -1,0 +1,1159 @@
+// Source of truth for the data model. Mirrors docs/02-data-model.md §2.
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "relationJoins"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_DATABASE_URL")
+  extensions = [pgcrypto, citext, pg_trgm]
+}
+
+// ─────────────────────────────────────────────────────────────
+// TENANTS AND BRANDING
+// ─────────────────────────────────────────────────────────────
+
+model Tenant {
+  id            String       @id @default(cuid(2))
+  slug          String       @unique
+  name          String
+  legalName     String?
+  status        TenantStatus @default(ACTIVE)
+  defaultLocale String       @default("en")
+  locales       String[]     @default(["en"])
+  timezone      String       @default("Asia/Nicosia")
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
+
+  domains      TenantDomain[]
+  brands       Brand[]
+  memberships  Membership[]
+  events       Event[]
+  settings     TenantSetting[]
+  featureFlags FeatureFlag[]
+  invites      Invite[]
+  secrets      SecretSetting[]
+
+  @@index([status])
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+/// Corporate email domains → resolve tenant and brand at login.
+model TenantDomain {
+  id         String     @id @default(cuid(2))
+  tenantId   String
+  domain     String     @db.Citext
+  hostType   DomainType @default(EMAIL)
+  isPrimary  Boolean    @default(false)
+  autoJoin   Boolean    @default(true)
+  brandId    String?
+  verifiedAt DateTime?  @db.Timestamptz(3)
+  createdAt  DateTime   @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  brand  Brand? @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  @@unique([domain])
+  @@index([tenantId])
+  @@index([brandId])
+}
+
+enum DomainType {
+  EMAIL
+  HOST
+}
+
+/// Visual theme. Belongs to a tenant, optionally overridden per event.
+model Brand {
+  id           String  @id @default(cuid(2))
+  tenantId     String
+  key          String
+  name         String
+  isDefault    Boolean @default(false)
+  appName      String
+  kicker       String?
+  logoLightUrl String?
+  logoDarkUrl  String?
+  logoMarkUrl  String?
+  ogImageUrl   String?
+
+  /// Theme tokens — structure defined by BrandTokensSchema (docs/04 §3.1).
+  tokens Json
+
+  /// Sanitised extra CSS (:root variables only). May be null.
+  customCss String? @db.Text
+
+  status      BrandStatus @default(DRAFT)
+  version     Int         @default(1)
+  publishedAt DateTime?   @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  domains  TenantDomain[]
+  events   Event[]
+  versions BrandVersion[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status])
+}
+
+enum BrandStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Theme version history — one-click rollback.
+model BrandVersion {
+  id        String   @id @default(cuid(2))
+  tenantId  String
+  brandId   String
+  version   Int
+  snapshot  Json
+  createdBy String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, version])
+  @@index([tenantId, brandId])
+}
+
+model FeatureFlag {
+  id        String   @id @default(cuid(2))
+  tenantId  String?
+  eventId   String?
+  key       String
+  enabled   Boolean  @default(false)
+  payload   Json?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event  Event?  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, eventId, key])
+  @@index([key])
+}
+
+model TenantSetting {
+  id        String   @id @default(cuid(2))
+  tenantId  String
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+}
+
+/// Encrypted integration secrets. The value is NEVER read back into the UI.
+model SecretSetting {
+  id         String    @id @default(cuid(2))
+  tenantId   String?
+  key        String
+  ciphertext Bytes
+  iv         Bytes
+  authTag    Bytes
+  wrappedKey Bytes
+  keyVersion Int       @default(1)
+  hint       String?
+  rotatedAt  DateTime? @db.Timestamptz(3)
+  expiresAt  DateTime? @db.Timestamptz(3)
+  createdBy  String?
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+}
+
+// ─────────────────────────────────────────────────────────────
+// USERS AND ACCESS
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id                  String     @id @default(cuid(2))
+  email               String     @unique @db.Citext
+  emailVerifiedAt     DateTime?  @db.Timestamptz(3)
+  name                String?
+  jobTitle            String?
+  department          String?
+  team                String?
+  avatarUrl           String?
+  hrContactId         String?
+  locale              String     @default("en")
+  status              UserStatus @default(ACTIVE)
+  primaryTenantId     String?
+  lastLoginAt         DateTime?  @db.Timestamptz(3)
+  createdAt           DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(3)
+  deletionRequestedAt DateTime?  @db.Timestamptz(3)
+
+  memberships     Membership[]
+  accounts        Account[]
+  sessions        Session[]
+  authFactors     AuthFactor[]
+  recoveryCodes   RecoveryCode[]
+  consents        Consent[]
+  registrations   EventRegistration[]
+  bookings        ActivityBooking[]
+  savedActivities SavedActivity[]
+  checklistStates ChecklistState[]
+  orders          Order[]
+  pushSubs        PushSubscription[]
+  notifications   NotificationDelivery[]
+  notifPrefs      NotificationPreference[]
+  auditEntries    AuditLog[]               @relation("AuditActor")
+
+  @@index([status])
+  @@index([primaryTenantId])
+}
+
+/// HR business partner binding for a department/team of a tenant.
+model HrAssignment {
+  id         String   @id @default(cuid(2))
+  tenantId   String
+  department String?
+  team       String?
+  hrUserId   String
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, department, team])
+  @@index([tenantId])
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DELETED
+}
+
+model Membership {
+  id        String           @id @default(cuid(2))
+  userId    String
+  tenantId  String
+  role      Role             @default(PARTICIPANT)
+  status    MembershipStatus @default(ACTIVE)
+  invitedBy String?
+  joinedAt  DateTime         @default(now()) @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+}
+
+enum Role {
+  PARTICIPANT
+  GUEST
+  SUPPORT
+  CONTENT_EDITOR
+  EVENT_MANAGER
+  TENANT_ADMIN
+  SUPER_ADMIN
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+/// OAuth/OIDC accounts. Created empty in v1, ready for Google in v1.5.
+model Account {
+  id                String   @id @default(cuid(2))
+  userId            String
+  provider          String
+  providerAccountId String
+  type              String
+  accessTokenEnc    Bytes?
+  refreshTokenEnc   Bytes?
+  expiresAt         Int?
+  scope             String?
+  hostedDomain      String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id                String    @id @default(cuid(2))
+  tokenHash         String    @unique
+  userId            String
+  tenantId          String?
+  mfaSatisfied      Boolean   @default(false)
+  stepUpAt          DateTime? @db.Timestamptz(3)
+  ipHash            String?
+  userAgent         String?
+  deviceLabel       String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt        DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt         DateTime  @db.Timestamptz(3)
+  absoluteExpiresAt DateTime  @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+  revokedReason     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+/// One-time tokens: magic link, email OTP, invites, email change, step-up.
+model VerificationToken {
+  id          String       @id @default(cuid(2))
+  identifier  String
+  tokenHash   String       @unique
+  purpose     TokenPurpose
+  bindingHash String?
+  attempts    Int          @default(0)
+  maxAttempts Int          @default(5)
+  metadata    Json?
+  expiresAt   DateTime     @db.Timestamptz(3)
+  consumedAt  DateTime?    @db.Timestamptz(3)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([identifier, purpose])
+  @@index([expiresAt])
+}
+
+enum TokenPurpose {
+  MAGIC_LINK
+  EMAIL_OTP
+  INVITE
+  EMAIL_CHANGE
+  STEP_UP
+}
+
+model AuthFactor {
+  id          String     @id @default(cuid(2))
+  userId      String
+  type        FactorType
+  secretEnc   Bytes?
+  iv          Bytes?
+  authTag     Bytes?
+  wrappedKey  Bytes?
+  label       String?
+  confirmedAt DateTime?  @db.Timestamptz(3)
+  lastUsedAt  DateTime?  @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+enum FactorType {
+  TOTP
+  EMAIL_OTP
+  WEBAUTHN
+}
+
+model RecoveryCode {
+  id        String    @id @default(cuid(2))
+  userId    String
+  codeHash  String
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model TrustedDevice {
+  id        String   @id @default(cuid(2))
+  userId    String
+  tokenHash String   @unique
+  label     String?
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid(2))
+  emailHash String
+  ipHash    String
+  success   Boolean
+  reason    String?
+  tenantId  String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([emailHash, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model Invite {
+  id         String    @id @default(cuid(2))
+  tenantId   String
+  email      String    @db.Citext
+  role       Role      @default(GUEST)
+  eventId    String?
+  tokenHash  String    @unique
+  invitedBy  String?
+  expiresAt  DateTime  @db.Timestamptz(3)
+  acceptedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, email])
+}
+
+/// Consents: Terms, Privacy, marketing, photo. Append-only.
+model Consent {
+  id              String      @id @default(cuid(2))
+  userId          String
+  tenantId        String
+  kind            ConsentKind
+  documentVersion String
+  granted         Boolean
+  ipHash          String?
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([tenantId, kind])
+}
+
+enum ConsentKind {
+  TERMS
+  PRIVACY
+  PUSH_NOTIFICATIONS
+  PHOTO_USAGE
+  MARKETING
+}
+
+// ─────────────────────────────────────────────────────────────
+// EVENTS AND PROGRAMME
+// ─────────────────────────────────────────────────────────────
+
+model Event {
+  id          String  @id @default(cuid(2))
+  tenantId    String
+  slug        String
+  title       String
+  subtitle    String?
+  description String? @db.Text
+  coverUrl    String?
+  brandId     String?
+
+  startsAt  DateTime @db.Timestamptz(3)
+  endsAt    DateTime @db.Timestamptz(3)
+  timezone  String
+  city      String?
+  country   String?
+  venueName String?
+
+  status        EventStatus     @default(DRAFT)
+  visibility    EventVisibility @default(TENANT)
+  audienceRules Json?
+
+  registrationEnabled  Boolean   @default(true)
+  registrationOpensAt  DateTime? @db.Timestamptz(3)
+  registrationClosesAt DateTime? @db.Timestamptz(3)
+  capacity             Int?
+  waitlistEnabled      Boolean   @default(true)
+  approvalRequired     Boolean   @default(false)
+  registrationForm     Json?
+
+  publishedAt DateTime? @db.Timestamptz(3)
+  archivedAt  DateTime? @db.Timestamptz(3)
+  deletedAt   DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  brand          Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  activities     Activity[]
+  places         Place[]
+  registrations  EventRegistration[]
+  announcements  Announcement[]
+  mediaLinks     MediaLink[]
+  contentBlocks  ContentBlock[]
+  checklistItems ChecklistItem[]
+  contacts       Contact[]
+  products       Product[]
+  orders         Order[]
+  featureFlags   FeatureFlag[]
+  notifications  Notification[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status, startsAt])
+  @@index([tenantId, startsAt])
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  ARCHIVED
+}
+
+enum EventVisibility {
+  TENANT
+  INVITE_ONLY
+  GROUP
+}
+
+model Activity {
+  id           String   @id @default(cuid(2))
+  tenantId     String
+  eventId      String
+  title        String
+  description  String?  @db.Text
+  track        Track    @default(WORKSHOP)
+  startsAt     DateTime @db.Timestamptz(3)
+  endsAt       DateTime @db.Timestamptz(3)
+  placeId      String?
+  locationText String?
+  speakers     Json?
+
+  bookingRequired Boolean   @default(false)
+  capacity        Int?
+  waitlistEnabled Boolean   @default(true)
+  bookingOpensAt  DateTime? @db.Timestamptz(3)
+  bookingClosesAt DateTime? @db.Timestamptz(3)
+
+  isFeatured  Boolean        @default(false)
+  isMandatory Boolean        @default(false)
+  status      ActivityStatus @default(SCHEDULED)
+  changeNote  String?
+  sortOrder   Int            @default(0)
+  announcedAt DateTime?      @db.Timestamptz(3)
+  deletedAt   DateTime?      @db.Timestamptz(3)
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(3)
+
+  event    Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  place    Place?            @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  bookings ActivityBooking[]
+  savedBy  SavedActivity[]
+
+  @@index([tenantId, eventId, startsAt])
+  @@index([eventId, track])
+  @@index([placeId])
+}
+
+enum Track {
+  WORKSHOP
+  SPORT
+  PARTY
+  TEAM
+  LOGISTICS
+}
+
+enum ActivityStatus {
+  SCHEDULED
+  MOVED
+  CANCELLED
+  FINISHED
+}
+
+model EventRegistration {
+  id               String             @id @default(cuid(2))
+  tenantId         String
+  eventId          String
+  userId           String?
+  status           RegistrationStatus @default(CONFIRMED)
+  answers          Json?
+  waitlistPosition Int?
+  checkInCodeHash  String?            @unique
+  checkedInAt      DateTime?          @db.Timestamptz(3)
+  checkInMode      String?
+  cancelledAt      DateTime?          @db.Timestamptz(3)
+  createdAt        DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(3)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, userId])
+  @@index([tenantId, eventId, status])
+  @@index([userId, createdAt])
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  WAITLISTED
+  DECLINED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+model ActivityBooking {
+  id               String        @id @default(cuid(2))
+  tenantId         String
+  activityId       String
+  userId           String
+  status           BookingStatus @default(BOOKED)
+  waitlistPosition Int?
+  cancelledAt      DateTime?     @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+  @@index([tenantId, activityId, status])
+  @@index([userId])
+}
+
+enum BookingStatus {
+  BOOKED
+  WAITLISTED
+  CANCELLED
+  ATTENDED
+}
+
+/// "♥" — personal schedule without reserving a seat.
+model SavedActivity {
+  userId     String
+  activityId String
+  tenantId   String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, activityId])
+  @@index([tenantId, activityId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAP AND CONTENT
+// ─────────────────────────────────────────────────────────────
+
+model Place {
+  id           String    @id @default(cuid(2))
+  tenantId     String
+  eventId      String
+  name         String
+  kind         PlaceKind
+  description  String?   @db.Text
+  mapX         Float?
+  mapY         Float?
+  lat          Float?
+  lng          Float?
+  address      String?
+  openingHours String?
+  imageUrl     String?
+  sortOrder    Int       @default(0)
+  deletedAt    DateTime? @db.Timestamptz(3)
+
+  event      Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@index([tenantId, eventId])
+}
+
+enum PlaceKind {
+  STAGE
+  WORKSHOP
+  CARE
+  MERCH
+  HOTEL
+  RESTAURANT
+  TRANSFER
+  IT_ZONE
+  OTHER
+}
+
+/// Generic content blocks: EventStyle, Travel, Help, FAQ, rules.
+model ContentBlock {
+  id          String         @id @default(cuid(2))
+  tenantId    String
+  eventId     String
+  section     ContentSection
+  key         String
+  title       String
+  body        String         @db.Text
+  icon        String?
+  imageUrl    String?
+  sortOrder   Int            @default(0)
+  isPublished Boolean        @default(true)
+  deletedAt   DateTime?      @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(3)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, section, key])
+  @@index([tenantId, eventId, section])
+}
+
+enum ContentSection {
+  EVENT_STYLE
+  TRAVEL
+  HELP
+  FAQ
+  RULES
+  ONBOARDING
+}
+
+model ChecklistItem {
+  id        String    @id @default(cuid(2))
+  tenantId  String
+  eventId   String
+  label     String
+  sortOrder Int       @default(0)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  event  Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  states ChecklistState[]
+
+  @@index([tenantId, eventId])
+}
+
+model ChecklistState {
+  userId    String
+  itemId    String
+  tenantId  String
+  checked   Boolean  @default(false)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, itemId])
+  @@index([tenantId, itemId])
+}
+
+model Contact {
+  id        String      @id @default(cuid(2))
+  tenantId  String
+  eventId   String
+  kind      ContactKind
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  note      String?
+  isUrgent  Boolean     @default(false)
+  sortOrder Int         @default(0)
+  deletedAt DateTime?   @db.Timestamptz(3)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, eventId])
+}
+
+enum ContactKind {
+  HR
+  PROGRAMME
+  LOGISTICS
+  URGENT
+  IT
+  OTHER
+}
+
+// ─────────────────────────────────────────────────────────────
+// MEDIA (external links + cover only)
+// ─────────────────────────────────────────────────────────────
+
+model MediaLink {
+  id             String        @id @default(cuid(2))
+  tenantId       String
+  eventId        String
+  kind           MediaKind
+  title          String
+  description    String?       @db.Text
+  url            String
+  coverUrl       String
+  coverBlurhash  String?
+  provider       MediaProvider @default(OTHER)
+  authorName     String?
+  authorUrl      String?
+  accessNote     String?
+  acceptsUploads Boolean       @default(false)
+  itemCountHint  Int?
+  status         MediaStatus   @default(DRAFT)
+  sortOrder      Int           @default(0)
+  publishedAt    DateTime?     @db.Timestamptz(3)
+  deletedAt      DateTime?     @db.Timestamptz(3)
+  createdBy      String?
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, eventId, status, sortOrder])
+}
+
+enum MediaKind {
+  PARTICIPANT_UPLOAD
+  PHOTOGRAPHER_GALLERY
+  VIDEO
+  PRESS
+  AFTERMOVIE
+  MATERIALS
+}
+
+enum MediaProvider {
+  GOOGLE_DRIVE
+  GOOGLE_PHOTOS
+  DROPBOX
+  ONEDRIVE
+  FLICKR
+  SMUGMUG
+  PIXIESET
+  YOUTUBE
+  VIMEO
+  OTHER
+}
+
+enum MediaStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+model MediaReport {
+  id          String            @id @default(cuid(2))
+  tenantId    String
+  mediaLinkId String
+  reporterId  String?
+  reason      MediaReportReason
+  comment     String?           @db.Text
+  status      MediaReportStatus @default(OPEN)
+  resolvedBy  String?
+  resolvedAt  DateTime?         @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, status, createdAt])
+  @@index([mediaLinkId])
+}
+
+enum MediaReportReason {
+  PRIVACY
+  INAPPROPRIATE
+  BROKEN_LINK
+  WRONG_ACCESS
+  OTHER
+}
+
+enum MediaReportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+// ─────────────────────────────────────────────────────────────
+// WINSTYLE (merch, no payments in v1)
+// ─────────────────────────────────────────────────────────────
+
+model Product {
+  id           String    @id @default(cuid(2))
+  tenantId     String
+  eventId      String
+  sku          String
+  name         String
+  description  String?   @db.Text
+  imageUrl     String?
+  priceCents   Int
+  currency     String    @default("EUR") @db.Char(3)
+  isActive     Boolean   @default(true)
+  perUserLimit Int       @default(1)
+  sortOrder    Int       @default(0)
+  deletedAt    DateTime? @db.Timestamptz(3)
+
+  event    Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  variants ProductVariant[]
+
+  @@unique([eventId, sku])
+  @@index([tenantId, eventId])
+}
+
+model ProductVariant {
+  id         String  @id @default(cuid(2))
+  tenantId   String
+  productId  String
+  size       String
+  stockTotal Int     @default(0)
+  isActive   Boolean @default(true)
+
+  product Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  items   OrderItem[]
+
+  @@unique([productId, size])
+  @@index([tenantId, productId])
+}
+
+model Order {
+  id             String      @id @default(cuid(2))
+  tenantId       String
+  eventId        String
+  userId         String
+  number         String
+  status         OrderStatus @default(RESERVED)
+  pickupCodeHash String?     @unique
+  pickedUpAt     DateTime?   @db.Timestamptz(3)
+  pickedUpBy     String?
+  cancelledAt    DateTime?   @db.Timestamptz(3)
+  createdAt      DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @db.Timestamptz(3)
+
+  event Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items OrderItem[]
+
+  @@unique([eventId, number])
+  @@index([tenantId, eventId, status])
+  @@index([userId])
+}
+
+enum OrderStatus {
+  RESERVED
+  READY_FOR_PICKUP
+  PICKED_UP
+  CANCELLED
+  EXPIRED
+}
+
+model OrderItem {
+  id         String @id @default(cuid(2))
+  tenantId   String
+  orderId    String
+  variantId  String
+  quantity   Int    @default(1)
+  priceCents Int
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([orderId, variantId])
+  @@index([variantId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// ANNOUNCEMENTS AND NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Announcement {
+  id          String               @id @default(cuid(2))
+  tenantId    String
+  eventId     String
+  title       String
+  body        String               @db.Text
+  severity    AnnouncementSeverity @default(INFO)
+  linkUrl     String?
+  startsAt    DateTime?            @db.Timestamptz(3)
+  endsAt      DateTime?            @db.Timestamptz(3)
+  isPinned    Boolean              @default(false)
+  isPublished Boolean              @default(false)
+  createdBy   String?
+  createdAt   DateTime             @default(now()) @db.Timestamptz(3)
+  deletedAt   DateTime?            @db.Timestamptz(3)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, eventId, isPublished, startsAt])
+}
+
+enum AnnouncementSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Notification {
+  id          String             @id @default(cuid(2))
+  tenantId    String
+  eventId     String?
+  kind        NotificationKind
+  title       String
+  body        String
+  linkUrl     String?
+  audience    Json
+  channels    String[]
+  scheduledAt DateTime?          @db.Timestamptz(3)
+  sentAt      DateTime?          @db.Timestamptz(3)
+  status      NotificationStatus @default(DRAFT)
+  createdBy   String?
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+
+  event      Event?                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@index([tenantId, status, scheduledAt])
+}
+
+enum NotificationKind {
+  ANNOUNCEMENT
+  REMINDER
+  SCHEDULE_CHANGE
+  PROGRAMME_UPDATE
+  REGISTRATION
+  MEDIA_READY
+  MERCH
+  SYSTEM
+}
+
+enum NotificationStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model NotificationDelivery {
+  id             String         @id @default(cuid(2))
+  tenantId       String
+  notificationId String
+  userId         String
+  channel        String
+  status         DeliveryStatus @default(QUEUED)
+  error          String?
+  sentAt         DateTime?      @db.Timestamptz(3)
+  readAt         DateTime?      @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId, channel])
+  @@index([userId, readAt])
+  @@index([tenantId, userId, createdAt])
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+model NotificationPreference {
+  id        String           @id @default(cuid(2))
+  userId    String
+  tenantId  String
+  kind      NotificationKind
+  channel   String
+  enabled   Boolean          @default(true)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, kind, channel])
+  @@index([tenantId, userId])
+}
+
+model PushSubscription {
+  id            String    @id @default(cuid(2))
+  tenantId      String
+  userId        String
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  userAgent     String?
+  locale        String?
+  isValid       Boolean   @default(true)
+  lastSuccessAt DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isValid])
+}
+
+// ─────────────────────────────────────────────────────────────
+// LOCALISATION AND AUDIT
+// ─────────────────────────────────────────────────────────────
+
+model Translation {
+  id         String   @id @default(cuid(2))
+  tenantId   String
+  entityType String
+  entityId   String
+  field      String
+  locale     String
+  value      String   @db.Text
+  updatedBy  String?
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([entityType, entityId, field, locale])
+  @@index([tenantId, locale])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid(2))
+  tenantId       String?
+  actorId        String?
+  actorEmailHash String?
+  actorRole      String?
+  action         String
+  entityType     String?
+  entityId       String?
+  diff           Json?
+  ipHash         String?
+  userAgent      String?
+  requestId      String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid(2))
+  tenantId    String
+  eventId     String?
+  subjectHash String
+  name        String
+  props       Json?
+  occurredAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, name, occurredAt])
+  @@index([tenantId, eventId, occurredAt])
+}
+
+model DataRequest {
+  id          String            @id @default(cuid(2))
+  tenantId    String
+  userId      String
+  kind        DataRequestKind
+  status      DataRequestStatus @default(PENDING)
+  resultUrl   String?
+  processedAt DateTime?         @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@index([tenantId, status])
+}
+
+enum DataRequestKind {
+  EXPORT
+  DELETE
+}
+
+enum DataRequestStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
