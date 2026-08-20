@@ -314,6 +314,11 @@ function FieldInput({
 }) {
   const label = labelFor(field, locale);
   const help = field.help?.[locale] ?? field.help?.en;
+  const requiredMark = field.required ? (
+    <span className="ml-1 text-danger" aria-hidden="true">
+      *
+    </span>
+  ) : null;
 
   if (field.type === 'boolean' || field.type === 'consent') {
     return <CheckboxField label={label} checked={value === true} onCheckedChange={onChange} />;
@@ -324,6 +329,7 @@ function FieldInput({
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-semibold" htmlFor={`field-${field.key}`}>
           {label}
+          {requiredMark}
         </label>
         <select
           id={`field-${field.key}`}
@@ -348,6 +354,7 @@ function FieldInput({
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-semibold" htmlFor={`field-${field.key}`}>
           {label}
+          {requiredMark}
         </label>
         <textarea
           id={`field-${field.key}`}

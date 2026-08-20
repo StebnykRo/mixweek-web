@@ -11,7 +11,7 @@ export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 
 /** docs/05 §4 — every field has a real <label>; errors are wired via aria-describedby. */
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, hint, error, hideLabel, className, id, ...props },
+  { label, hint, error, hideLabel, className, id, required, ...props },
   ref,
 ) {
   const generatedId = useId();
@@ -23,10 +23,19 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     <div className="flex flex-col gap-1.5">
       <label htmlFor={inputId} className={cn('text-sm font-semibold', hideLabel && 'sr-only')}>
         {label}
+        {/* Marked on the label itself: otherwise the only way to learn a field
+            is required is to reach the bottom of the form and be refused. */}
+        {required ? (
+          <span className="ml-1 text-danger" aria-hidden="true">
+            *
+          </span>
+        ) : null}
       </label>
       <input
         ref={ref}
         id={inputId}
+        required={required}
+        aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined}
         className={cn(
