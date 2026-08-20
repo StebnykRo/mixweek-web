@@ -84,7 +84,7 @@ export function MfaForm({ enrolled, accountLabel }: { enrolled: boolean; account
             router.refresh();
           }}
         >
-          {t('verify')}
+          {t('recoveryDone')}
         </Button>
       </div>
     );

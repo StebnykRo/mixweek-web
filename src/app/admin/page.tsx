@@ -57,7 +57,12 @@ export default async function AdminDashboard({
         select: { id: true, title: true, startsAt: true, capacity: true, _count: { select: { bookings: true } } },
       }),
     ),
-    withTenant(session.tenantId, (db) => db.notificationDelivery.count({ where: { status: 'FAILED' } })),
+    // Scoped to this event like every other tile. It previously counted the
+    // whole tenant, so a failure at a past event showed up against a future
+    // one and the number never matched what the organiser was looking at.
+    withTenant(session.tenantId, (db) =>
+      db.notificationDelivery.count({ where: { status: 'FAILED', notification: { eventId: current.id } } }),
+    ),
     withTenant(session.tenantId, (db) => db.order.count({ where: { eventId: current.id, status: 'RESERVED' } })),
   ]);
 

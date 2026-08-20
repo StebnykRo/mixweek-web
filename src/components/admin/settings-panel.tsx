@@ -6,6 +6,7 @@ import { api } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { SwitchField } from '@/components/ui/switch';
 import { useToast } from '@/components/providers/toast-provider';
+import { labelForSetting } from '@/modules/tenancy/setting-labels';
 
 export function SettingsPanel({
   settings,
@@ -51,21 +52,55 @@ export function SettingsPanel({
             <h2 className="py-3 font-display text-lg">{group}</h2>
             {keys.map((key) => {
               const value = values[key];
+              const meta = labelForSetting(key);
+
               if (typeof value === 'boolean') {
                 return (
-                  <SwitchField
-                    key={key}
-                    label={key}
-                    checked={value}
-                    onCheckedChange={(next) => void save(key, next)}
-                    className="border-t border-divider"
-                  />
+                  <div key={key} className="border-t border-divider">
+                    <SwitchField
+                      label={meta.label}
+                      checked={value}
+                      onCheckedChange={(next) => void save(key, next)}
+                    />
+                    <p className="pb-3 text-xs text-ink-muted">
+                      {meta.help ? `${meta.help} ` : ''}
+                      <code className="opacity-60">{key}</code>
+                    </p>
+                  </div>
                 );
               }
+
+              if (meta.options) {
+                return (
+                  <div key={key} className="flex flex-col gap-1.5 border-t border-divider py-3">
+                    <label className="text-sm font-semibold" htmlFor={`setting-${key}`}>
+                      {meta.label}
+                    </label>
+                    <select
+                      id={`setting-${key}`}
+                      value={String(value ?? '')}
+                      onChange={(event) => void save(key, event.target.value)}
+                      className="h-12 rounded-md border border-divider bg-surface px-4 text-[15px]"
+                    >
+                      {meta.options.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-ink-muted">
+                      {meta.help ? `${meta.help} ` : ''}
+                      <code className="opacity-60">{key}</code>
+                    </p>
+                  </div>
+                );
+              }
+
               return (
                 <div key={key} className="border-t border-divider py-3">
                   <Input
-                    label={key}
+                    label={meta.label}
+                    hint={meta.help ? `${meta.help} (${key})` : key}
                     value={String(value ?? '')}
                     onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))}
                     onBlur={(event) =>

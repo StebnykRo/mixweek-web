@@ -85,7 +85,8 @@
     "invalid": "That code did not work.",
     "required": "Confirm your identity to continue.",
     "stepUpTitle": "Confirm it is you",
-    "stepUpBody": "This action needs a fresh second-factor confirmation."
+    "stepUpBody": "This action needs a fresh second-factor confirmation.",
+    "recoveryDone": "I have saved these"
   },
   "onboarding": {
     "termsTitle": "Terms and privacy",
