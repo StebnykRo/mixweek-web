@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { getSession } from '@/lib/http/context';
 import { requireEvent } from '@/lib/http/viewer';
+import { eventPhase } from '@/modules/events/time';
 import { withTenant } from '@/lib/db/tenant-client';
 import { isFeatureEnabled } from '@/modules/tenancy/settings';
 import { getMyOrder, listProducts } from '@/modules/merch/service';
@@ -98,6 +99,7 @@ export default async function WinStylePage({ params }: { params: Promise<{ slug:
             }))}
             alreadyOrdered={order !== null}
             locale={locale}
+            closed={eventPhase(event) === 'past'}
           />
         )}
       </div>

@@ -54,7 +54,7 @@ const EVENTS: EventSpec[] = [
     venue: 'Demo Beach Resort',
     capacity: 120,
     withMerch: true,
-    withAlbums: false,
+    withAlbums: true,
     coverUrl: '/demo/cover-mix-week.png',
   },
   {
@@ -77,7 +77,7 @@ const EVENTS: EventSpec[] = [
     city: 'Limassol',
     venue: 'Demo Beach Resort',
     capacity: 90,
-    withMerch: false,
+    withMerch: true,
     withAlbums: true,
     coverUrl: '/demo/cover-mix-week-2025.png',
   },
@@ -162,6 +162,66 @@ const ALBUMS: Array<[string, string, string, string]> = [
   ['Aftermovie', '/demo/aftermovie.png', 'https://example.com/videos/aftermovie', 'AFTERMOVIE'],
 ];
 
+/**
+ * Travel, EventStyle and Help are ContentBlock rows, so without these the tabs
+ * render an empty state and look broken rather than empty.
+ */
+const CONTENT: Array<[string, string, string, string]> = [
+  // section, key, title, body
+  [
+    'TRAVEL', 'flights', 'Flights and airport',
+    'Fly into Larnaca (LCA), about 50 minutes from the hotel by road. Paphos (PFO) also works but the transfer is closer to 90 minutes.\n\nBook to arrive before 16:00 on day one if you can — the opening session is at 11:00 the next morning, but the welcome dinner is the same evening.',
+  ],
+  [
+    'TRAVEL', 'transfer', 'Airport transfer',
+    'Tick the transfer box when you register and we will book a seat for you. Drivers wait in arrivals with a board showing the event name.\n\nIf your flight moves, tell the organisers rather than the driver — the pickup list is rebuilt each morning.',
+  ],
+  [
+    'TRAVEL', 'visa', 'Visas and documents',
+    'Cyprus is in the EU but not in Schengen, so a Schengen visa is not enough on its own. Check your own passport against the current rules early — a national visa can take several weeks.\n\nBring the booking confirmation; border control sometimes asks for it.',
+  ],
+  [
+    'TRAVEL', 'expenses', 'What is covered',
+    'Flights, transfers, the hotel and all meals in the programme are paid for. Anything outside the programme — extra nights, minibar, taxis of your own — is not.\n\nKeep receipts for anything you expect to claim back.',
+  ],
+  [
+    'EVENT_STYLE', 'daytime', 'Daytime',
+    'Whatever you would wear to the office on a Friday. Sessions are indoors and air-conditioned, so a light layer is worth having even in September.',
+  ],
+  [
+    'EVENT_STYLE', 'evening', 'Evening',
+    'Smart casual for the welcome dinner. The beach party is exactly as informal as it sounds — flip-flops are fine, and the floor is sand.',
+  ],
+  [
+    'EVENT_STYLE', 'bring', 'Worth packing',
+    'Swimwear, sunscreen, a hat, comfortable shoes for the morning run, and a European plug adapter if you are coming from the UK.',
+  ],
+  [
+    'HELP', 'contacts', 'Who to ask',
+    'Organisers wear a lanyard in the event colour and are on the Main Stage between sessions. For anything urgent outside programme hours, use the phone number on your badge.',
+  ],
+  [
+    'HELP', 'lost', 'Lost something',
+    'Lost property lives at the hotel reception desk, not the merch desk. Anything unclaimed goes back to the office after the event.',
+  ],
+  [
+    'HELP', 'quiet', 'Somewhere quiet',
+    'The Quiet Room is marked on the map and has no programme in it at any point. No one will ask you why you are there.',
+  ],
+  [
+    'FAQ', 'plus-one', 'Can I bring a partner?',
+    'Not to the programme itself. Partners are welcome at the hotel at your own cost, and the beach party on the second evening is the one item they can join.',
+  ],
+  [
+    'FAQ', 'diet', 'I have a dietary requirement',
+    'Say so when you register. The kitchen works from that list, so a late change is much harder to accommodate than an early one.',
+  ],
+  [
+    'FAQ', 'miss', 'What if I can only come for part of it?',
+    'That is fine — register anyway and tell the organisers which days. Sessions marked as mandatory are the ones worth rearranging travel for.',
+  ],
+];
+
 const MERCH: Array<[string, string, string, number, string[], string]> = [
   // sku, name, description, price in cents, sizes, image
   ['TEE', 'Event T-shirt', 'Organic cotton, unisex fit. Free for every participant.', 0, ['XS', 'S', 'M', 'L', 'XL', 'XXL'], '/demo/product-tee.png'],
@@ -215,6 +275,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
   await prisma.place.deleteMany({ where: { eventId: event.id } });
   await prisma.mediaLink.deleteMany({ where: { eventId: event.id } });
   await prisma.product.deleteMany({ where: { eventId: event.id } });
+  await prisma.contentBlock.deleteMany({ where: { eventId: event.id } });
 
   const places: Record<string, string> = {};
   for (const [index, [name, kind, description, mapX, mapY]] of PLACES.entries()) {
@@ -255,6 +316,21 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
         isMandatory: track === 'TEAM',
         sortOrder: index,
         status: 'SCHEDULED',
+      },
+    });
+  }
+
+  for (const [index, [section, key, title, body]] of CONTENT.entries()) {
+    await prisma.contentBlock.create({
+      data: {
+        tenantId,
+        eventId: event.id,
+        section: section as never,
+        key,
+        title,
+        body,
+        sortOrder: index,
+        isPublished: true,
       },
     });
   }

@@ -26,10 +26,16 @@ export type WinStyleProps = {
   products: ProductView[];
   alreadyOrdered: boolean;
   locale: string;
+  /**
+   * A finished event still shows what it had — reserveOrder() rejects it with
+   * EVENT_ENDED, and offering a Reserve button that can only fail is worse
+   * than showing none.
+   */
+  closed?: boolean;
 };
 
 /** docs/07-screens.md §11 — reserve and collect. No payment anywhere in v1. */
-export function WinStyleGrid({ eventSlug, products, alreadyOrdered, locale }: WinStyleProps) {
+export function WinStyleGrid({ eventSlug, products, alreadyOrdered, locale, closed = false }: WinStyleProps) {
   const t = useTranslations('winstyle');
   const tc = useTranslations('common');
   const toast = useToast();
@@ -87,8 +93,8 @@ export function WinStyleGrid({ eventSlug, products, alreadyOrdered, locale }: Wi
                 {product.variants.map((variant) => (
                   <Chip
                     key={variant.id}
-                    selected={chosen === variant.id}
-                    disabled={variant.available === 0}
+                    selected={!closed && chosen === variant.id}
+                    disabled={closed || variant.available === 0}
                     className="h-9 px-3 text-xs disabled:opacity-40"
                     onClick={() => setSizes((current) => ({ ...current, [product.id]: variant.id }))}
                   >
@@ -98,7 +104,9 @@ export function WinStyleGrid({ eventSlug, products, alreadyOrdered, locale }: Wi
               </div>
 
               <div className="mt-auto pt-2">
-                {alreadyOrdered ? (
+                {closed ? (
+                  <Badge tone="neutral">{t('closed')}</Badge>
+                ) : alreadyOrdered ? (
                   <Badge tone="success">{t('reserved')}</Badge>
                 ) : anyAvailable ? (
                   <Button

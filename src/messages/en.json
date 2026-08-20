@@ -243,7 +243,8 @@
     "orderNumber": "Order {number}",
     "showQr": "Show pick-up code",
     "limitReached": "You have reached the limit for this item.",
-    "empty": "Nothing available yet."
+    "empty": "Nothing available yet.",
+    "closed": "Event finished"
   },
   "style": {
     "title": "EventStyle",

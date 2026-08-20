@@ -32,7 +32,7 @@ export default async function RegisterPage({ params }: { params: Promise<{ slug:
     <>
       <PageHeader title={t('title')} kicker={event.title} backHref={`/events/${event.slug}`} />
 
-      <div className="px-4 pb-8 lg:max-w-2xl lg:px-8">
+      <div className="px-4 pb-8 lg:max-w-3xl lg:px-8">
         {event.registrationOpen ? (
           <RegistrationForm
             eventSlug={event.slug}
