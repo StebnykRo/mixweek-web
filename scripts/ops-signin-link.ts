@@ -58,7 +58,7 @@ async function main() {
   const domain = email.split('@')[1] ?? '';
   const mapped = await prisma.tenantDomain.findFirst({
     where: { domain, hostType: 'EMAIL' },
-    select: { tenant: { select: { slug: true, status: true } } },
+    select: { tenant: { select: { id: true, slug: true, status: true } } },
   });
 
   if (!mapped) {
@@ -75,7 +75,21 @@ async function main() {
 
   // No binding: the link has to work in whatever browser the recipient opens
   // it in, since it did not start there.
-  const tokens = await issueLoginTokens(email, null, { issuedBy: 'ops:signin-link' }, ttlMs);
+  // completeLogin() reads tenantId back out of the token metadata and throws
+  // "Login token carries no tenant" without it, so this has to mirror what
+  // startLogin() stores — not merely enough to identify the person.
+  const tokens = await issueLoginTokens(
+    email,
+    null,
+    {
+      tenantId: mapped.tenant.id,
+      viaInvite: false,
+      inviteRole: null,
+      inviteEventId: null,
+      issuedBy: 'ops:signin-link',
+    },
+    ttlMs,
+  );
   const url = `${appUrl}/auth/verify?token=${encodeURIComponent(tokens.linkToken)}`;
 
   await prisma.auditLog.create({
