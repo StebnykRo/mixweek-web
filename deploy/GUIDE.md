@@ -1,16 +1,16 @@
 # Step-by-step deployment guide
 
-This guide takes you from a brand-new, empty Ubuntu server to a working
-website at **https://events.sunscript.tech**.
+This guide takes you from nothing to a working website at
+**https://events.sunscript.tech**.
 
 It assumes you have never done this before. Every command is written out in
-full. After most commands there is a short description of what you should see,
-so you can tell whether it worked before moving on.
+full. After most commands there is a note saying what you should see, so you
+can tell whether it worked before moving on.
 
-Set aside about **90 minutes**. Most of that is waiting.
+Set aside about **two hours**. Most of that is waiting.
 
 If a step does not produce what this guide says it should, **stop** and look at
-Part 12 (Troubleshooting) rather than continuing. Carrying on after a failed
+Part 17 (Troubleshooting) rather than pushing on. Continuing after a failed
 step is what turns a small problem into a large one.
 
 ---
@@ -19,16 +19,17 @@ step is what turns a small problem into a large one.
 
 ### 0.1 What you need to have ready
 
-Write these five things down before you begin. You will need each of them
-several times, and hunting for them mid-way is how mistakes happen.
+Write these down before you begin. You will need each of them several times,
+and hunting for them halfway through is how mistakes happen.
 
 | # | Thing | Example | Where it comes from |
 | --- | --- | --- | --- |
 | 1 | Server IP address | `203.0.113.45` | Your hosting provider's control panel |
-| 2 | Server root password or key | — | Emailed to you when the server was created |
+| 2 | Server root password | — | Emailed to you when the server was created |
 | 3 | Your email address | `you@yourcompany.com` | For certificate expiry warnings |
 | 4 | Company email domain | `yourcompany.com` | The part after `@` in your staff's work email |
 | 5 | Admin email address | `you@yourcompany.com` | Must end in the domain from row 4 |
+| 6 | GitHub account | `StebnykRo` | Where the code is stored |
 
 Rows 4 and 5 matter more than they look. The application decides which company
 a person belongs to by looking at the domain of the email address they type in.
@@ -36,30 +37,30 @@ Get row 4 wrong and nobody will be able to sign in.
 
 ### 0.2 What the server must be
 
-- **Ubuntu 24.04 LTS** (Ubuntu 22.04 also works)
+- **Ubuntu 24.04 LTS** (22.04 also works)
 - At least **2 CPU cores, 4 GB RAM, 40 GB disk**
 - A **public IPv4 address**
 
-If your provider offers a smaller size, do not take it. Building the
-application uses a lot of memory, and on a 2 GB server it either takes an hour
-or fails outright.
+If your provider offers something smaller, do not take it. Building the
+application uses a lot of memory; on a 2 GB server it either takes an hour or
+fails outright.
 
-### 0.3 Notation used in this guide
+### 0.3 Notation
 
-Commands you type appear in grey boxes like this:
+Commands appear in grey boxes:
 
 ```bash
 echo hello
 ```
 
-Some commands contain **placeholders in capital letters**. Replace the whole
-placeholder, including nothing else. For example, if the guide says:
+Some contain **placeholders in capital letters**. Replace the whole
+placeholder and nothing else. If the guide says:
 
 ```bash
 ssh root@SERVER_IP
 ```
 
-and your server IP is `203.0.113.45`, you type:
+and your server is `203.0.113.45`, you type:
 
 ```bash
 ssh root@203.0.113.45
@@ -67,63 +68,102 @@ ssh root@203.0.113.45
 
 Not `ssh root@SERVER_IP203.0.113.45`, and not `ssh root@"203.0.113.45"`.
 
-### 0.4 Two terminal windows
+Every command is labelled with where it runs:
 
-You will need **two Terminal windows open at the same time** in Part 6. It is
-worth opening both now so you are not fumbling later.
+- **[MAC]** — a Terminal window on your Mac
+- **[SERVER]** — a Terminal window logged into the server
+- **[BROWSER]** — a website, not a command
 
-On your Mac, press `Cmd + Space`, type `Terminal`, press Enter. Then press
-`Cmd + N` to open a second window. Arrange them side by side.
+Mixing up [MAC] and [SERVER] is the single most common mistake. To tell which
+you are on, look at the start of the line where you type: your Mac's name means
+[MAC], `usrmixweek@ubuntu` or `root@ubuntu` means [SERVER].
 
-Throughout the guide, commands are labelled:
+### 0.4 Open two Terminal windows
 
-- **[MAC]** — type this in a Terminal window on your Mac
-- **[SERVER]** — type this in a Terminal window that is logged into the server
+You will need two at once in Part 8. Open both now.
 
-Getting these two mixed up is the single most common mistake. If a command
-fails with "no such file or directory", check which machine you are on first.
-
-To tell which one you are on, look at the start of the line where you type.
-On your Mac it shows your Mac's name. On the server it shows something like
-`root@ubuntu` or `usrmixweek@ubuntu`.
+Press `Cmd + Space`, type `Terminal`, press Enter. Then `Cmd + N` for a second
+window. Put them side by side.
 
 ---
 
-## Part 1 — Point the domain at the server
+## Part 1 — How the pieces fit together
 
-Do this first. It takes a few minutes to take effect worldwide, and everything
-later depends on it. Starting it now means the wait happens in the background
-while you do Part 2.
+Read this once. It makes the rest of the guide obvious instead of a list of
+commands to copy.
 
-### 1.1 Add the DNS record
+There are **three machines** in this story:
 
-Log in to wherever `sunscript.tech` is managed — the company that sells you the
-domain name. Find the section called **DNS**, **DNS records**, or **Zone
-editor**.
+```
+   your Mac  ────────────►  GitHub  ◄────────────  the server
+              writes code            reads code
+                    │                      ▲
+                    └──────────────────────┘
+                        runs the deploy
+```
 
-Add a new record with these exact values:
+- **GitHub** stores the code. It is the single source of truth.
+- **Your Mac** writes code and pushes it up.
+- **The server** pulls the code down and runs the website.
+
+Every arrow is an SSH connection, and each one needs **its own key**. A key is
+a pair of files: a `.pub` file that is safe to hand out, and a matching private
+file that never leaves the machine that made it.
+
+Three arrows, three keys:
+
+| Key | Lives on | Lets you | Access |
+| --- | --- | --- | --- |
+| **A** `github_mixweek` | your Mac | push code to GitHub | read + write |
+| **B** `mixweek` | your Mac | log in to the server | full login |
+| **C** `github_deploy` | the server | pull code from GitHub | **read only** |
+
+Two design decisions worth understanding, because they are deliberate:
+
+**Key C is read-only.** The server can fetch code and nothing else. A server
+that can push to your source is a server that can quietly change what it
+deploys. If it is ever broken into, your code is still safe.
+
+**Each key is scoped to one repository.** On GitHub these are *deploy keys*,
+and a deploy key works for exactly one repository. If key A leaks, only
+`mixweek-web` is affected — your other projects are untouched.
+
+You will create A and B on your Mac, and C on the server.
+
+---
+
+## Part 2 — Point the domain at the server
+
+Do this first. It takes a few minutes to spread worldwide, and everything later
+depends on it. Starting now means the wait happens in the background.
+
+### 2.1 Add the DNS record
+
+Log in to wherever `sunscript.tech` is managed — the company you buy the domain
+name from. Find the section called **DNS**, **DNS records** or **Zone editor**.
+
+Add a record with these exact values:
 
 | Field | Value |
 | --- | --- |
 | Type | `A` |
 | Name / Host | `events` |
-| Value / Points to | Your server IP from row 1 |
-| TTL | `300` (or "5 minutes", or "Automatic") |
+| Value / Points to | Your server IP (row 1) |
+| TTL | `300`, or "5 minutes", or "Automatic" |
 | Proxy / CDN | **OFF** |
 
-A few notes:
+Two things people get wrong here:
 
 - The Name field is just `events`, **not** `events.sunscript.tech`. Nearly
-  every DNS provider adds the rest for you. If yours shows a preview, it should
-  read `events.sunscript.tech`.
-- If you are using Cloudflare, there is an orange cloud icon next to the
-  record. **Click it so it turns grey.** An orange cloud prevents the security
-  certificate from being issued the first time. You can turn it back on later,
-  once the site is working.
+  every provider adds the rest for you. If yours shows a preview it should read
+  `events.sunscript.tech`.
+- On Cloudflare there is an orange cloud icon beside the record. **Click it so
+  it turns grey.** An orange cloud blocks the security certificate from being
+  issued the first time. You can switch it back on later.
 
 Save the record.
 
-### 1.2 Check that it worked
+### 2.2 Check it worked
 
 **[MAC]**
 
@@ -131,40 +171,198 @@ Save the record.
 dig +short events.sunscript.tech
 ```
 
-You should see your server's IP address and nothing else:
+You want your server's IP and nothing else:
 
 ```
 203.0.113.45
 ```
 
-If you see nothing at all, the record has not spread yet. Wait five minutes and
-run the command again. If after twenty minutes it is still blank, the record
-was probably saved incorrectly — go back to 1.1 and check the Name field.
+Nothing at all means it has not spread yet — wait five minutes and try again.
+Still blank after twenty minutes means the record was saved wrongly; go back to
+2.1 and check the Name field.
 
-**Do not continue until this command prints your server's IP.**
+**Do not continue until this prints your server's IP.**
 
 ---
 
-## Part 2 — Create your SSH key
+## Part 3 — Key A: let your Mac push to GitHub
 
-An SSH key is a pair of files that proves who you are to the server, replacing
-a password. One file is public and gets copied to the server. The other is
-private and never leaves your Mac.
+> **Already done?** If you have pushed to this repository before, skip to
+> Part 4 and just run the verification in 4.4.
 
-### 2.1 Check whether you already have one
+### 3.1 Create the key
 
 **[MAC]**
 
 ```bash
-ls -l ~/.ssh/mixweek.pub
+ssh-keygen -t ed25519 -C "mixweek-web (mac push)" -f ~/.ssh/github_mixweek
 ```
 
-If it prints a line ending in `mixweek.pub`, the key already exists —
-**skip to 2.3**.
+The `-f ~/.ssh/github_mixweek` part matters. It says exactly where to save the
+key. Leave it out and the command *asks* you where to save it, and whatever you
+type there is treated as relative to whichever folder you happen to be in — so
+the key lands somewhere unexpected and nothing can find it afterwards.
 
-If it says `No such file or directory`, continue with 2.2.
+It asks two questions:
 
-### 2.2 Create the key
+1. *"Enter passphrase"* — type one and press Enter. **Nothing appears as you
+   type, not even dots. That is normal.** Put the passphrase in your password
+   manager now.
+2. *"Enter same passphrase again"* — type the same thing.
+
+It prints a small block of ASCII art. That means it worked.
+
+### 3.2 Remember the passphrase once
+
+**[MAC]**
+
+```bash
+ssh-add --apple-use-keychain ~/.ssh/github_mixweek
+```
+
+Type the passphrase one final time. macOS stores it and loads the key
+automatically at every login, so pushes never prompt again.
+
+This is better than a key with no passphrase: the file on disk stays
+encrypted, and macOS decides when it may be used.
+
+### 3.3 Show the public half
+
+**[MAC]**
+
+```bash
+cat ~/.ssh/github_mixweek.pub
+```
+
+One long line beginning `ssh-ed25519 AAAA` and ending in a comment:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExampleExampleExample mixweek-web (mac push)
+```
+
+**Select the entire line and copy it** (`Cmd + C`).
+
+Copy the *whole* line, including `ssh-ed25519` at the start. Partial copies
+fail in confusing ways.
+
+This is the `.pub` file — the **public** half, safe to share. Never copy or
+send the file without `.pub`; that one is the actual secret. Keep it out of
+iCloud Drive, Dropbox and any other synced folder. `~/.ssh` is not synced,
+which is exactly why keys belong there.
+
+### 3.4 Tell SSH when to use it
+
+**[MAC]**
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+
+Host github-mixweek
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/github_mixweek
+  IdentitiesOnly yes
+  AddKeysToAgent yes
+  UseKeychain yes
+EOF
+```
+
+This invents a nickname, `github-mixweek`, that means "github.com, using this
+particular key".
+
+`IdentitiesOnly yes` is load-bearing. Without it SSH offers every key you own,
+GitHub accepts whichever matches some *other* repository first, and you get a
+baffling "repository not found" for a repository that plainly exists.
+
+---
+
+## Part 4 — Put the code on GitHub
+
+> **Already done?** If the repository exists and has been pushed to, skip to
+> 4.4 and verify.
+
+### 4.1 Create an empty repository
+
+**[BROWSER]** — go to https://github.com/new
+
+| Field | Value |
+| --- | --- |
+| Owner | `StebnykRo`, or an organisation from the dropdown |
+| Repository name | `mixweek-web` |
+| Description | leave blank |
+| Visibility | **Private** |
+
+Under *"Initialize this repository with"*, leave **all three unticked**:
+
+- ☐ Add a README file
+- ☐ Add .gitignore → stays `None`
+- ☐ Choose a license → stays `None`
+
+This matters. Your Mac already has the full history. If GitHub creates a README
+the two histories share no common ancestor, and the push is rejected with
+`unrelated histories`. The repository must be empty.
+
+Click **Create repository**. You land on a "Quick setup" page — **ignore all of
+it.** Those commands set up an HTTPS remote; you want SSH with a specific key.
+
+### 4.2 Register key A on the repository
+
+**[BROWSER]** — in the new repository: **Settings → Deploy keys → Add deploy
+key**
+
+| Field | Value |
+| --- | --- |
+| Title | `mac-push` |
+| Key | the line you copied in 3.3 |
+| Allow write access | **TICK THIS BOX** |
+
+Without the tick, pushing fails. This is the one key that is allowed to write.
+
+### 4.3 Push the code
+
+**[MAC]**
+
+```bash
+cd "/Users/srv/Library/Mobile Documents/com~apple~CloudDocs/Projects/MixWeek app/mixweek-web"
+git remote add origin git@github-mixweek:StebnykRo/mixweek-web.git
+git push -u origin main
+```
+
+Change `StebnykRo` if you created it under an organisation.
+
+You should see a long list of objects and then:
+
+```
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+```
+
+### 4.4 Verify
+
+**[MAC]**
+
+```bash
+ssh -T git@github-mixweek
+```
+
+Expect:
+
+```
+Hi StebnykRo/mixweek-web! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+The bit about shell access is normal — GitHub says that to everyone. What
+matters is the repository name. If it names a *different* repository, step 3.4
+did not take effect.
+
+---
+
+## Part 5 — Key B: let your Mac log in to the server
+
+> **Already done?** Check with `ls -l ~/.ssh/mixweek.pub`. If it exists, skip
+> to 5.3.
+
+### 5.1 Create the key
 
 **[MAC]**
 
@@ -172,23 +370,20 @@ If it says `No such file or directory`, continue with 2.2.
 ssh-keygen -t ed25519 -C "mixweek-deploy" -f ~/.ssh/mixweek
 ```
 
-The `-f ~/.ssh/mixweek` part matters. It tells the command exactly where to put
-the key. Without it, the command asks you where to save it, and anything you
-type there is treated as relative to whatever folder you happen to be in — so
-the key ends up somewhere unexpected and later steps cannot find it.
+Same two questions as before: a passphrase, twice. Save it in your password
+manager.
 
-It asks two questions:
+Again the `-f` matters, for the same reason as in 3.1.
 
-1. *"Enter passphrase"* — type a passphrase and press Enter. **You will not see
-   anything as you type, not even dots. That is normal.** Choose something you
-   can remember; you will type it each time you connect. Save it in your
-   password manager now.
-2. *"Enter same passphrase again"* — type the same thing again.
+### 5.2 Remember the passphrase
 
-It prints a small piece of ASCII art called a randomart image. That means it
-worked.
+**[MAC]**
 
-### 2.3 Display the public key
+```bash
+ssh-add --apple-use-keychain ~/.ssh/mixweek
+```
+
+### 5.3 Show the public half
 
 **[MAC]**
 
@@ -196,38 +391,22 @@ worked.
 cat ~/.ssh/mixweek.pub
 ```
 
-It prints one long line that starts with `ssh-ed25519 AAAA` and ends with a
-comment:
-
-```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExampleExampleExample mixweek-deploy
-```
-
-**Select that entire line and copy it** (`Cmd + C`). You will paste it in Part
-4. Keep this Terminal window open so you can copy it again if needed.
-
-Two warnings:
-
-- Copy the **whole** line, including `ssh-ed25519` at the start and the comment
-  at the end. Partial copies fail in confusing ways.
-- This is the `.pub` file — the **public** half, safe to share. Never copy or
-  send the file without `.pub`; that one is the actual secret. In particular
-  keep it out of iCloud Drive, Dropbox and any other synced folder — `~/.ssh`
-  is not synced, which is exactly why keys belong there.
+Copy the whole line. You will paste it in Part 7 — this is the key that gets
+installed on the server.
 
 ---
 
-## Part 3 — Copy the application to the server
+## Part 6 — Copy the setup files to the server
 
-The code also lives on GitHub, and in Part 7.2 the server will fetch it from
-there properly. But at this moment the server is brand new: it has no keys, no
-git, and no way to authenticate to a private repository.
+The code is on GitHub, and in Part 10 the server will fetch it from there
+properly. But right now the server is brand new: no keys, no git, and no way to
+authenticate to a private repository.
 
-So this part sends a one-off snapshot across using the server's root password —
-just enough to run the setup script. The proper GitHub connection comes after
-the server has been prepared.
+So this part sends a one-off snapshot across using the root password — just
+enough to run the setup script. The proper GitHub connection comes once the
+server has been prepared.
 
-### 3.1 Make a package
+### 6.1 Make a package
 
 **[MAC]**
 
@@ -235,38 +414,36 @@ the server has been prepared.
 cd "/Users/srv/Library/Mobile Documents/com~apple~CloudDocs/Projects/MixWeek app/mixweek-web"
 ```
 
-That command prints nothing when it works. If it says "No such file or
-directory", the project has moved — find it and use its real path.
-
-Now build the package:
+Prints nothing when it works. "No such file or directory" means the project has
+moved — find it and use the real path.
 
 ```bash
 git archive --format=tar.gz -o ~/mixweek-web.tar.gz HEAD
 ```
 
-This also prints nothing. Check it was created:
+Also prints nothing. Check it exists:
 
 ```bash
 ls -lh ~/mixweek-web.tar.gz
 ```
 
-You should see a file of roughly **1 to 3 MB**:
+Expect roughly **1 to 3 MB**:
 
 ```
 -rw-r--r--  1 srv  staff   1.8M 20 Aug 15:04 /Users/srv/mixweek-web.tar.gz
 ```
 
-If it is only a few kilobytes, something is wrong — stop and ask.
+A few kilobytes means something is wrong — stop and ask.
 
-### 3.2 Send it to the server
+### 6.2 Send it across
 
-**[MAC]** — replace `SERVER_IP` with your server's address:
+**[MAC]**
 
 ```bash
 scp ~/mixweek-web.tar.gz root@SERVER_IP:/root/
 ```
 
-The first time you connect to a new server it asks:
+The first connection to a new server asks:
 
 ```
 The authenticity of host '203.0.113.45' can't be established.
@@ -274,12 +451,10 @@ ED25519 key fingerprint is SHA256:...
 Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 
-Type `yes` and press Enter. Then enter the server's root password when asked
-(again, nothing appears as you type).
+Type `yes`, press Enter, then enter the root password (nothing appears as you
+type). A progress bar runs to 100%.
 
-A progress bar runs to 100%. That is the file transferred.
-
-### 3.3 Log in to the server
+### 6.3 Log in and unpack
 
 **[MAC]**
 
@@ -287,13 +462,9 @@ A progress bar runs to 100%. That is the file transferred.
 ssh root@SERVER_IP
 ```
 
-Enter the root password. The prompt changes to something like `root@ubuntu:~#`.
+Enter the root password. The prompt becomes `root@ubuntu:~#`.
 
-**Everything from here until Part 6 is [SERVER].**
-
-### 3.4 Unpack
-
-**[SERVER]**
+**Everything until Part 8 is now [SERVER].**
 
 ```bash
 mkdir -p /root/mixweek-web && tar xzf /root/mixweek-web.tar.gz -C /root/mixweek-web
@@ -305,34 +476,34 @@ Check it arrived intact:
 ls /root/mixweek-web/deploy
 ```
 
-You should see the deployment files:
+You should see:
 
 ```
-Caddyfile   GUIDE.md    backup.sh   compose.production.yml   env.production.example
-README.md   bootstrap.sh   deploy.sh   git-hooks   harden.sh   install-app.sh
-postgres-init   restore.sh   setup-git-remote.sh
+Caddyfile   GUIDE.md    README.md   backup.sh   bootstrap.sh
+compose.production.yml  deploy.sh   env.production.example  git-hooks
+harden.sh   install-app.sh  postgres-init  restore.sh  setup-git-remote.sh
 ```
 
-If that list is missing or short, the transfer failed. Go back to 3.1.
+A short or missing list means the transfer failed. Go back to 6.1.
 
 ---
 
-## Part 4 — Prepare and secure the server
+## Part 7 — Prepare and secure the server
 
-This is the big one. It creates a user account for the application, installs
-Docker, and locks the server down.
+This creates the `usrmixweek` account, installs Docker, and locks the server
+down.
 
-### 4.1 Read this before running the command
+### 7.1 Read this before running it
 
 At the end of this step, **logging in with a password will no longer be
-possible**. Only your SSH key will work. This is a large improvement in
-security and also the one place in this guide where a mistake is expensive.
+possible**. Only key B will work. This is a large improvement in security and
+also the one place in this guide where a mistake is expensive.
 
-The script refuses to disable passwords unless it can see a valid key, and Part
-6 verifies the key works before you close anything. Follow the order and you
-will be fine.
+The script refuses to disable passwords unless it can already see a valid key,
+and Part 8 verifies the key works before you close anything. Follow the order
+and you will be fine.
 
-### 4.2 Run the preparation script
+### 7.2 Run it
 
 **[SERVER]**
 
@@ -340,27 +511,30 @@ will be fine.
 cd /root/mixweek-web/deploy
 ```
 
-Now the main command. **Paste your public key from step 2.3 between the
-quotes**, replacing `PASTE_YOUR_PUBLIC_KEY_HERE`:
+Now the main command. **Paste the public key from step 5.3 between the
+quotes**, replacing `PASTE_KEY_B_HERE`:
 
 ```bash
-bash bootstrap.sh --user usrmixweek --ssh-key "PASTE_YOUR_PUBLIC_KEY_HERE"
+bash bootstrap.sh --ssh-key "PASTE_KEY_B_HERE"
 ```
 
-The finished command looks roughly like this — one long line:
+Filled in, it looks like this — one long line:
 
 ```bash
-bash bootstrap.sh --user usrmixweek --ssh-key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExample mixweek-deploy"
+bash bootstrap.sh --ssh-key "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExample mixweek-deploy"
 ```
 
 Keep the double quotes. The key contains spaces, and without quotes the script
 sees only the first word.
 
+The account is called `usrmixweek` by default. To use a different name, add
+`--user SOMETHING`.
+
 Press Enter.
 
-### 4.3 What happens now
+### 7.3 What you should see
 
-It runs for **five to ten minutes** and prints blue `==>` lines as it goes:
+It runs for **five to ten minutes**, printing blue `==>` lines:
 
 ```
 ==> Updating the package index
@@ -378,43 +552,35 @@ It runs for **five to ten minutes** and prints blue `==>` lines as it goes:
 ```
 
 Yellow `[!]` lines are warnings and usually fine. A red `[x]` line means it
-stopped — read what it says and see Part 12.
+stopped — read what it says, then see Part 17.
 
-It finishes with a box telling you to verify a second session. That is Part 6,
+It finishes with a box telling you to verify a second session. That is Part 8,
 and it is not optional.
 
-**Leave this Terminal window open. Do not close it. Do not type `exit`.**
+**Leave this window open. Do not close it. Do not type `exit`.**
 
----
+### 7.4 What it just did
 
-## Part 5 — What just happened
-
-Worth understanding, because you now have a different way of logging in.
-
-The script created a user called **`usrmixweek`**. From now on you log in as
-`usrmixweek`, not as `root`. Root login over SSH is switched off.
-
-It also:
-
-- Installed **Docker**, which runs the application in isolated containers
-- Added **2 GB of swap** so the build does not run out of memory
-- Turned on a **firewall** allowing only SSH, HTTP and HTTPS
-- Installed **fail2ban**, which blocks an IP address for 24 hours after three
-  failed SSH attempts
+- Created the **`usrmixweek`** account. From now on you log in as that, not as
+  root. Root login over SSH is off.
+- Installed **Docker**, which runs the application in isolated containers.
+- Added **2 GB of swap** so the build does not run out of memory.
+- Turned on a **firewall** allowing only SSH, HTTP and HTTPS.
+- Installed **fail2ban** — three failed SSH attempts earns a 24-hour ban.
 - Turned on **automatic security updates**, with a reboot at 04:30 UTC if a new
-  kernel needs one
+  kernel needs one.
 
 ---
 
-## Part 6 — Verify you can still get in (do not skip)
+## Part 8 — Verify you can still get in (do not skip)
 
-This is the safety check. You are proving the new login works **while you still
-have the old one open** as a fallback.
+This is the safety check. You are proving the new way in works **while the old
+way is still open** as a fallback.
 
-### 6.1 In your SECOND Terminal window
+### 8.1 In your SECOND Terminal window
 
-Switch to the other Terminal window — the one on your Mac that is not logged
-into the server.
+Switch to the other window — the one on your Mac that is *not* logged into the
+server.
 
 **[MAC]**
 
@@ -422,30 +588,28 @@ into the server.
 ssh usrmixweek@SERVER_IP
 ```
 
-It will ask for the **passphrase for your SSH key** (the one you chose in step
-2.2), not the server's root password.
+It may ask for the passphrase for key B. If you ran 5.2 it will not ask at all.
 
-**If you land at a prompt reading `usrmixweek@ubuntu:~$`, you are safe.** Continue
-to 6.2.
+**If you land at a prompt reading `usrmixweek@ubuntu:~$`, you are safe.**
+Continue to 8.2.
 
-**If you get `Permission denied (publickey)`:** do not close the first window.
-Go to Part 12.3, which fixes this from the still-open root session.
+**If you get `Permission denied (publickey)`** — do not close the first window.
+Go to Part 17.3, which fixes it from the still-open root session.
 
-### 6.2 Close the root session
+### 8.2 Close the root session
 
-Now, and only now, switch back to the **first** window — the one logged in as
-root — and type:
+Now, and only now, switch back to the **first** window (logged in as root) and
+type:
 
 ```bash
 exit
 ```
 
-From here on, everything is done in the `usrmixweek` session from 6.1.
+Everything from here happens in the `usrmixweek` session.
 
-### 6.3 Make future logins easier
+### 8.3 Make future logins short
 
-**[MAC]** — in a Terminal on your Mac (open a third window, or use the one
-freed up in 6.2):
+**[MAC]** — in a Terminal on your Mac:
 
 ```bash
 cat >> ~/.ssh/config <<'EOF'
@@ -458,43 +622,51 @@ Host mixweek
 EOF
 ```
 
-Replace `SERVER_IP` afterwards:
+Then replace `SERVER_IP` with the real address:
 
 ```bash
 nano ~/.ssh/config
 ```
 
-Use the arrow keys to reach `SERVER_IP`, delete it, type the real address. Then
-press `Ctrl + O`, Enter (to save), and `Ctrl + X` (to exit).
+Arrow keys to reach `SERVER_IP`, delete it, type the address. `Ctrl + O`, Enter
+to save, `Ctrl + X` to exit.
 
-Now you can connect with just:
+Now this is all you need:
 
 ```bash
 ssh mixweek
 ```
 
+### 8.4 Adding another person's key later
+
+Someone else needs access? They send you *their* `.pub` line, and you append it
+as its own line:
+
+**[SERVER]**
+
+```bash
+nano ~/.ssh/authorized_keys
+```
+
+Paste their line at the end, save, exit. One key per line. Nothing else is
+needed — no restart, no password.
+
+To take access away, delete their line from the same file.
+
 ---
 
-## Part 7 — Move the application into place
+## Part 9 — Log out and back in
 
-**[SERVER]** — in your `usrmixweek` session:
+The snapshot in `/root/mixweek-web` has done its job — it existed only to run
+the setup script. Part 10 fetches a proper copy from GitHub, so leave it where
+it is as a fallback and do not move it.
 
-```bash
-sudo mv /root/mixweek-web ~/app && sudo chown -R usrmixweek:usrmixweek ~/app
-```
+One thing does need doing first.
 
-Check:
+### 9.1 Why
 
-```bash
-ls ~/app/deploy
-```
-
-Same file list as in 3.4.
-
-### 7.1 Log out and back in
-
-Docker permissions only apply to a fresh login. Skipping this makes the next
-part fail with a confusing error.
+Docker permissions only apply from a fresh login. Skipping this makes Part 11
+fail with a confusing error.
 
 **[SERVER]**
 
@@ -514,33 +686,41 @@ Confirm Docker works:
 docker ps
 ```
 
-You should see an empty table with headings:
+You want an empty table with headings:
 
 ```
 CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
 ```
 
-If instead you see `permission denied while trying to connect to the Docker
-daemon socket`, the log-out did not take. Repeat 7.1.
+If you see `permission denied while trying to connect to the Docker daemon
+socket`, the log-out did not take. Repeat 9.1.
 
-### 7.2 Connect the server to GitHub
+---
 
-What you copied across in Part 3 was a snapshot — a plain folder with no link
-back to where the code came from. Replacing it with a proper clone is what
-makes future updates a single command instead of another round of scp.
+## Part 10 — Key C: let the server pull from GitHub
 
-The server gets its **own key**, separate from the one on your Mac, and that
-key is **read-only**. A server that can write to your source code is a server
-that can quietly alter what it deploys. It only ever needs to read.
+What you copied across in Part 6 was a snapshot — a plain folder with no link
+back to where it came from. A real clone is what makes future updates a single
+command instead of another round of scp.
 
-**[SERVER]** — create the key. There is no passphrase on this one, because
-nobody is sitting at the server to type it:
+The server gets its **own key**, and that key is **read-only**. It only ever
+needs to read.
+
+### 10.1 Create the key on the server
+
+**[SERVER]**
 
 ```bash
 ssh-keygen -t ed25519 -C "mixweek-web server (read-only)" -f ~/.ssh/github_deploy -N ''
 ```
 
-Display it:
+`-N ''` means no passphrase. That is correct here and wrong on your Mac: nobody
+is sitting at the server at 3am to type one. The key is protected by the file
+permissions and by the fact that it can only read.
+
+### 10.2 Show it
+
+**[SERVER]**
 
 ```bash
 cat ~/.ssh/github_deploy.pub
@@ -548,18 +728,24 @@ cat ~/.ssh/github_deploy.pub
 
 Copy the whole line.
 
-**[BROWSER]** — go to the repository on GitHub, then **Settings → Deploy keys
-→ Add deploy key**:
+### 10.3 Register it on GitHub
+
+**[BROWSER]** — the repository → **Settings → Deploy keys → Add deploy key**
 
 | Field | Value |
 | --- | --- |
 | Title | `server-readonly` |
-| Key | the line you just copied |
-| Allow write access | **leave unticked** |
+| Key | the line from 10.2 |
+| Allow write access | **LEAVE UNTICKED** |
 
-Leaving that box unticked is the entire point of this step. Do not tick it.
+Leaving that box unticked is the entire point of this part. Do not tick it.
 
-**[SERVER]** — tell SSH to use that key for GitHub:
+You should now have two deploy keys listed: `mac-push` (write) and
+`server-readonly` (read).
+
+### 10.4 Tell the server to use it
+
+**[SERVER]**
 
 ```bash
 cat >> ~/.ssh/config <<'EOF'
@@ -573,20 +759,20 @@ EOF
 chmod 600 ~/.ssh/config
 ```
 
-Check it works:
+Test:
 
 ```bash
 ssh -T git@github.com
 ```
 
-Expect: `Hi StebnykRo/mixweek-web! You've successfully authenticated…`
-The warning about shell access is normal — GitHub says that to everyone.
+Expect `Hi StebnykRo/mixweek-web! You've successfully authenticated…`
 
-**[SERVER]** — replace the copied folder with a real clone. Nothing has been
-generated in it yet, so there is nothing to lose:
+### 10.5 Clone the code
+
+**[SERVER]**
 
 ```bash
-rm -rf ~/app && git clone git@github.com:StebnykRo/mixweek-web.git ~/app
+git clone git@github.com:StebnykRo/mixweek-web.git ~/app
 ```
 
 Confirm:
@@ -595,16 +781,23 @@ Confirm:
 ls ~/app/deploy && git -C ~/app log --oneline -1
 ```
 
-You should see the file list again, and one line showing the latest commit.
+You should see the file list and one line showing the latest commit.
 
-Do this step **before** Part 8. After Part 8 the folder contains generated
-passwords, and `rm -rf` would destroy them.
+If it says `destination path '~/app' already exists`, you have run this before.
+Update it in place instead of cloning again:
+
+```bash
+cd ~/app && git pull --ff-only
+```
+
+Never delete `~/app` once Part 11 has run — it holds the generated passwords,
+and they are not stored anywhere else.
 
 ---
 
-## Part 8 — Install the application
+## Part 11 — Install the application
 
-### 8.1 Run the installer
+### 11.1 Run the installer
 
 **[SERVER]** — replace `YOUR_EMAIL` with your own address (row 3):
 
@@ -612,15 +805,13 @@ passwords, and `rm -rf` would destroy them.
 cd ~/app/deploy && ./install-app.sh --domain events.sunscript.tech --email YOUR_EMAIL
 ```
 
-That email is only used by Let's Encrypt, the free certificate authority, to
-warn you if a certificate is about to expire. It is not shown publicly.
+That email is used only by Let's Encrypt, the free certificate authority, to
+warn you before a certificate expires. It is not shown publicly.
 
-### 8.2 What happens, and how long
+### 11.2 What happens, and how long
 
-**This takes 10 to 20 minutes.** Most of it is one long silent stretch during
-the build. That is normal — do not interrupt it.
-
-The stages, in order:
+**Ten to twenty minutes.** Most of it is one long silent stretch during the
+build. That is normal — do not interrupt it.
 
 ```
 ==> Generating .env.production        (instant — creates all passwords)
@@ -635,13 +826,10 @@ The stages, in order:
 ==> Installing the nightly backup timer
 ```
 
-Partway through it prints a message about secrets. **Read it — Part 9 acts on
+Partway through it prints a message about secrets. **Read it — Part 12 acts on
 it.**
 
-It ends with a box confirming the site address and reminding you to create a
-tenant.
-
-### 8.3 Confirm the site is up
+### 11.3 Confirm the site is up
 
 **[MAC]**
 
@@ -649,29 +837,29 @@ tenant.
 curl -sS https://events.sunscript.tech/api/health
 ```
 
-You should get back:
+You want:
 
 ```
 {"status":"ok"}
 ```
 
 Then open **https://events.sunscript.tech** in a browser. It sends you to the
-sign-in page, and there should be a padlock in the address bar. Do not try to
-sign in yet — that needs Parts 10 and 11 first.
+sign-in page, with a padlock in the address bar. Do not try to sign in yet —
+that needs Parts 13 and 14 first.
 
-If the certificate did not arrive, see Part 12.4.
+If the certificate did not arrive, see Part 17.4.
 
 ---
 
-## Part 9 — Save the two keys (do this now)
+## Part 12 — Save the two keys that cannot be recreated
 
-The server has just generated two things that **cannot be recreated**. If the
-server's disk dies and you do not have copies, the data is gone permanently.
-Not "difficult to recover" — gone.
+The server has just generated two things that **cannot be regenerated**. If the
+disk dies and you have no copies, the data is gone permanently. Not "difficult
+to recover" — gone.
 
-Do this before moving on. It takes two minutes.
+Do this now. It takes two minutes.
 
-### 9.1 The master key
+### 12.1 The master key
 
 **[SERVER]**
 
@@ -679,21 +867,19 @@ Do this before moving on. It takes two minutes.
 grep APP_MASTER_KEY= ~/app/deploy/.env.production
 ```
 
-It prints two lines. Copy the value of the first one — everything after the
-`=` sign:
+Two lines print. Copy the value of the first — everything after the `=`:
 
 ```
 APP_MASTER_KEY=EXAMPLE-ONLY-yours-will-be-44-random-characters=
 APP_MASTER_KEY_PREVIOUS=
 ```
 
-Paste it into your password manager (1Password, Bitwarden, Apple Passwords)
-under a name like *"MixWeek APP_MASTER_KEY — production"*.
+Into your password manager as *"MixWeek APP_MASTER_KEY — production"*.
 
-This key encrypts every secret the application stores. Without it those become
+This key encrypts every secret the application stores. Without it they become
 permanently unreadable.
 
-### 9.2 The backup key
+### 12.2 The backup key
 
 **[SERVER]**
 
@@ -701,45 +887,41 @@ permanently unreadable.
 cat ~/app/deploy/backups/age.key
 ```
 
-It prints three lines, the last starting with `AGE-SECRET-KEY-`. Copy **all
-three lines** into your password manager as *"MixWeek backup key —
-production"*.
+Three lines print, the last starting `AGE-SECRET-KEY-`. Copy **all three** into
+your password manager as *"MixWeek backup key — production"*.
 
 This is the only thing that can decrypt the nightly backups. A backup key
 stored only on the machine it protects is not a backup key.
 
-### 9.3 Where backups go
+### 12.3 Where backups go
 
-Backups run automatically every night at 03:15 UTC into
-`~/app/deploy/backups`, and are kept for 30 days.
+Automatically every night at 03:15 UTC into `~/app/deploy/backups`, kept for 30
+days.
 
 They currently live only on this server, which does not protect you against
-losing the server. Once you have somewhere to put them — another machine, or
-object storage — set `BACKUP_REMOTE` in `.env.production`. Until then, be aware
-of the limitation.
+losing the server. Once you have somewhere else to put them, set
+`BACKUP_REMOTE` in `.env.production`. Until then, know the limitation.
 
 ---
 
-## Part 10 — Create the first company and admin
+## Part 13 — Create the first company and admin
 
-The application is running but completely empty. There are no companies in it,
-and because it works out which company you belong to from your email address,
-**nobody can sign in yet**.
+The application is running but empty. There are no companies in it, and because
+it works out who you are from your email address, **nobody can sign in yet**.
 
-### 10.1 Understand the two different domains
+### 13.1 Two different domains
 
 This trips people up, so read it twice.
 
 - **`events.sunscript.tech`** is the *website address*. People type it into a
-  browser. It is already configured.
-- **Your company email domain** (row 4 — for example `yourcompany.com`) is what
-  comes after the `@` in your staff's email addresses. This is what the
-  application uses to work out who somebody is.
+  browser. Already configured.
+- **Your company email domain** (row 4 — say `yourcompany.com`) is what comes
+  after the `@` in your staff's email addresses. This is what the application
+  uses to work out who somebody is.
 
-These are almost always different, and the next command needs the **email**
-one.
+They are almost always different, and the next command needs the **email** one.
 
-### 10.2 Run the command
+### 13.2 Run it
 
 **[SERVER]** — replace the four capitalised values:
 
@@ -747,22 +929,20 @@ one.
 cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml run --rm --entrypoint '' migrator pnpm exec tsx scripts/provision-tenant.ts --slug=COMPANY_SLUG --name="COMPANY NAME" --domain=COMPANY_EMAIL_DOMAIN --admin=ADMIN_EMAIL
 ```
 
-What each one means:
-
 | Placeholder | What to put | Example |
 | --- | --- | --- |
-| `COMPANY_SLUG` | Short name, lowercase letters and hyphens only, no spaces | `acme` |
-| `COMPANY NAME` | The display name, shown to users. Keep the quotes | `"Acme Corporation"` |
-| `COMPANY_EMAIL_DOMAIN` | Row 4 — the part after `@` in staff emails | `acme.com` |
-| `ADMIN_EMAIL` | Row 5 — your address, must end in the domain above | `you@acme.com` |
+| `COMPANY_SLUG` | Short name, lowercase and hyphens only, no spaces | `acme` |
+| `COMPANY NAME` | Display name shown to users. Keep the quotes | `"Acme Corporation"` |
+| `COMPANY_EMAIL_DOMAIN` | Row 4 — after the `@` in staff emails | `acme.com` |
+| `ADMIN_EMAIL` | Row 5 — must end in the domain above | `you@acme.com` |
 
-A filled-in example:
+Filled in:
 
 ```bash
 cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml run --rm --entrypoint '' migrator pnpm exec tsx scripts/provision-tenant.ts --slug=acme --name="Acme Corporation" --domain=acme.com --admin=you@acme.com
 ```
 
-### 10.3 What you should see
+### 13.3 What you should see
 
 ```
 Tenant "acme" ready.
@@ -771,22 +951,22 @@ Tenant "acme" ready.
   Sign in with that address; the link arrives by email.
 ```
 
-If it says `--admin must be at @acme.com`, your admin email does not match the
-company domain. Both must be the same domain. Fix and run it again — running it
+`--admin must be at @acme.com` means the admin address does not match the
+company domain. Both must be the same domain. Fix it and run again — running it
 twice is safe.
 
 ---
 
-## Part 11 — Set up email
+## Part 14 — Set up email
 
-Signing in works by emailing a link. Right now no email settings are
-configured, so the application writes messages to a log file instead of
-sending them. **Nobody can sign in until this is done.**
+Signing in works by emailing a link. With no email settings configured the
+application writes messages to a log file instead of sending them, so **nobody
+can sign in until this is done**.
 
-### 11.1 Get SMTP details
+### 14.1 Get SMTP details
 
-You need five values from whoever runs your company email — or from a sending
-service such as Postmark, SendGrid, Mailgun or Amazon SES:
+Five values, from whoever runs your company email or from a sending service
+such as Postmark, SendGrid, Mailgun or Amazon SES:
 
 | Setting | Looks like |
 | --- | --- |
@@ -796,11 +976,11 @@ service such as Postmark, SendGrid, Mailgun or Amazon SES:
 | Password | provided by the service |
 | From address | `no-reply@yourcompany.com` |
 
-A dedicated sending service is worth the small cost. Mail sent directly from a
+A dedicated sending service is worth the small cost. Mail sent straight from a
 new server is very often filed as spam, and a sign-in link in a spam folder is
 indistinguishable from a broken application.
 
-### 11.2 Enter them
+### 14.2 Enter them
 
 **[SERVER]**
 
@@ -808,10 +988,10 @@ indistinguishable from a broken application.
 nano ~/app/deploy/.env.production
 ```
 
-`nano` is a simple text editor. Use the arrow keys — the mouse does nothing.
-Press `Ctrl + W`, type `SMTP_HOST`, press Enter to jump to the right section.
+`nano` is a simple editor — arrow keys only, the mouse does nothing. Press
+`Ctrl + W`, type `SMTP_HOST`, press Enter to jump there.
 
-Fill in the values after each `=`, with no spaces around it:
+Fill in each value after the `=`, with no spaces around it:
 
 ```
 SMTP_HOST=smtp.postmarkapp.com
@@ -821,9 +1001,9 @@ SMTP_PASSWORD=your-password-here
 MAIL_FROM=no-reply@yourcompany.com
 ```
 
-Save and exit: `Ctrl + O`, Enter, then `Ctrl + X`.
+`Ctrl + O`, Enter, `Ctrl + X`.
 
-### 11.3 Restart
+### 14.3 Restart
 
 **[SERVER]**
 
@@ -831,13 +1011,12 @@ Save and exit: `Ctrl + O`, Enter, then `Ctrl + X`.
 cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml restart app worker
 ```
 
-### 11.4 Test it
+### 14.4 Test
 
 Open **https://events.sunscript.tech** and sign in with the admin address from
-step 10.2. The link should arrive within a minute. Check the spam folder if it
-does not.
+13.2. The link should arrive within a minute. Check spam if it does not.
 
-### 11.5 If email is not ready yet
+### 14.5 If email is not ready yet
 
 You can still get in. Request a sign-in link on the website, then:
 
@@ -847,101 +1026,12 @@ You can still get in. Request a sign-in link on the website, then:
 cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml logs --tail 100 app | grep -i "sign-in\|magic\|token"
 ```
 
-The link appears in the output. Copy it into your browser. This is a temporary
-measure for testing, not something to rely on.
+The link appears in the output. Paste it into your browser. This is for testing
+only, not something to rely on.
 
 ---
 
-## Part 12 — Troubleshooting
-
-### 12.1 "Permission denied" or "command not found"
-
-Check which machine you are on. Look at the start of the line where you type:
-your Mac's name means **[MAC]**, `usrmixweek@ubuntu` means **[SERVER]**. Running a
-[SERVER] command on your Mac is the most common cause.
-
-### 12.2 The script stopped with a red `[x]` line
-
-That line says what went wrong. The scripts stop deliberately rather than
-continuing in a broken state. Fix what it names and run the same command again
-— all of them are safe to re-run.
-
-### 12.3 `Permission denied (publickey)` when connecting as usrmixweek
-
-Your key did not get installed properly. **In the root window that is still
-open** (Part 6 told you not to close it):
-
-```bash
-mkdir -p /home/usrmixweek/.ssh
-nano /home/usrmixweek/.ssh/authorized_keys
-```
-
-Paste your public key from step 2.3 as a single line. Save with `Ctrl + O`,
-Enter, `Ctrl + X`. Then:
-
-```bash
-chown -R usrmixweek:usrmixweek /home/usrmixweek/.ssh
-chmod 700 /home/usrmixweek/.ssh
-chmod 600 /home/usrmixweek/.ssh/authorized_keys
-```
-
-Try connecting as `usrmixweek` again in the second window.
-
-**If you closed the root window already** and cannot get in at all: log in
-through your hosting provider's web console (variously "Console", "VNC",
-"Remote Access" in their control panel) — that route does not go through SSH
-and still works. Then follow the steps above.
-
-### 12.4 The site has no certificate / browser warns it is not secure
-
-Check DNS still points here:
-
-```bash
-dig +short events.sunscript.tech
-```
-
-If that is right, look at the certificate service's log:
-
-**[SERVER]**
-
-```bash
-cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml logs caddy | tail -40
-```
-
-Common causes:
-
-- **DNS is wrong or has not spread.** Fix it, wait, then restart:
-  `docker compose --env-file .env.production -f compose.production.yml restart caddy`
-- **Cloudflare's orange cloud is on.** Turn it grey (step 1.1) and restart caddy.
-- **Rate limited.** Let's Encrypt allows five failures per hour per domain. If
-  you have tried repeatedly, wait an hour. Retrying faster makes it worse.
-
-### 12.5 The application keeps restarting
-
-**[SERVER]**
-
-```bash
-cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml logs --tail 60 app
-```
-
-Nearly always a missing or mistyped value in `.env.production`. The application
-checks its settings on startup and refuses to run with bad ones — the log names
-the offending setting.
-
-### 12.6 Checking the state of everything
-
-**[SERVER]**
-
-```bash
-cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml ps
-```
-
-All rows should read `running` or `healthy`, except `migrator`, which should
-read `exited (0)`. That one is supposed to finish and stop.
-
----
-
-## Part 13 — Day-to-day
+## Part 15 — Everyday commands
 
 Save yourself typing. **[SERVER]**, once:
 
@@ -953,23 +1043,22 @@ Then:
 
 | What you want | Command |
 | --- | --- |
-| See the live log | `dc logs -f app` (press `Ctrl + C` to stop) |
-| Check what is running | `dc ps` |
-| Restart the application | `dc restart app worker` |
-| Back up right now | `cd ~/app/deploy && DEPLOY_DIR=~/app/deploy ./backup.sh` |
+| Live log | `dc logs -f app` (`Ctrl + C` to stop) |
+| What is running | `dc ps` |
+| Restart | `dc restart app worker` |
+| Back up now | `cd ~/app/deploy && DEPLOY_DIR=~/app/deploy ./backup.sh` |
 | List backups | `ls -lh ~/app/deploy/backups` |
-| Add another company | Part 10.2 with different values |
-| Free up disk space | `docker image prune -f` |
+| Another company | Part 13.2 with different values |
+| Free disk space | `docker image prune -f` |
 
 ---
 
-## Part 14 — Shipping updates later
+## Part 16 — Shipping updates later
 
-The code lives on GitHub, and the server has a read-only clone of it. Updating
-the live site is therefore two moves: publish the change, then tell the server
-to pick it up.
+The code lives on GitHub and the server has a read-only clone. Updating the
+live site is two moves: publish the change, then tell the server to take it.
 
-### 14.1 Publish the change
+### 16.1 Publish
 
 **[MAC]** — from the project folder:
 
@@ -977,38 +1066,36 @@ to pick it up.
 git push origin main
 ```
 
-That updates GitHub. The live site is untouched so far, which is deliberate —
-pushing code and deploying it are separate decisions.
+That updates GitHub. The live site is untouched so far, deliberately — pushing
+code and deploying it are separate decisions.
 
-### 14.2 Deploy it
+### 16.2 Deploy
 
-**[MAC]** — one command, run from anywhere:
+**[MAC]** — one command, from anywhere:
 
 ```bash
 ssh mixweek 'cd ~/app && git pull --ff-only && deploy/deploy.sh'
 ```
 
-The output streams back to your Terminal so you can watch it happen. It takes
-a backup first, builds the new version, updates the database, and restarts. If
-the new version fails to start it puts the previous one back automatically and
-tells you so.
+Output streams back so you can watch. It takes a backup first, builds the new
+version, updates the database, and restarts. If the new version fails to start
+it puts the previous one back automatically and says so.
 
-`--ff-only` means "only move forward". If the server's copy has somehow been
-edited directly, the pull stops rather than producing a merge nobody asked
-for. If you see `Not possible to fast-forward`, somebody changed files on the
-server — see 14.4.
+`--ff-only` means "only move forward". If the server's copy has been edited
+directly the pull stops rather than inventing a merge nobody asked for. See
+16.4 if that happens.
 
-### 14.3 Doing it from the server instead
+### 16.3 From the server instead
 
-If you are already logged in:
+Already logged in:
 
 ```bash
 cd ~/app && git pull --ff-only && deploy/deploy.sh
 ```
 
-Exactly the same thing.
+Identical.
 
-### 14.4 If the pull refuses
+### 16.4 If the pull refuses
 
 Something was edited directly on the server. GitHub is the source of truth, so
 throw the local changes away:
@@ -1017,10 +1104,10 @@ throw the local changes away:
 cd ~/app && git fetch origin && git reset --hard origin/main
 ```
 
-This does **not** touch `deploy/.env.production` or `deploy/backups` — those
-are not tracked by git, so a reset leaves them alone.
+This does **not** touch `deploy/.env.production` or `deploy/backups` — git does
+not track those, so a reset leaves them alone.
 
-### 14.5 Checking what is actually deployed
+### 16.5 What is actually deployed
 
 **[SERVER]**
 
@@ -1028,30 +1115,130 @@ are not tracked by git, so a reset leaves them alone.
 git -C ~/app log --oneline -1
 ```
 
-Compare that to what `git log --oneline -1` shows on your Mac. If they differ,
-the server has not been updated yet.
+Compare with `git log --oneline -1` on your Mac. Different means the server has
+not been updated.
 
 ---
 
-## Part 15 — Honest limitations
+## Part 17 — Troubleshooting
 
-Things worth knowing rather than discovering:
+### 17.1 "Permission denied" or "command not found"
+
+Check which machine you are on. Look at the start of the line where you type:
+your Mac's name means [MAC], `usrmixweek@ubuntu` means [SERVER]. Running a
+[SERVER] command on your Mac is the most common cause.
+
+### 17.2 A script stopped with a red `[x]`
+
+That line says what went wrong. The scripts stop deliberately rather than carry
+on broken. Fix what it names and run the same command again — all of them are
+safe to re-run.
+
+### 17.3 `Permission denied (publickey)` connecting as usrmixweek
+
+Key B did not get installed. **In the root window that is still open** (Part 7
+told you not to close it):
+
+```bash
+mkdir -p /home/usrmixweek/.ssh
+nano /home/usrmixweek/.ssh/authorized_keys
+```
+
+Paste the public key from 5.3 as a single line. `Ctrl + O`, Enter, `Ctrl + X`.
+Then:
+
+```bash
+chown -R usrmixweek:usrmixweek /home/usrmixweek/.ssh
+chmod 700 /home/usrmixweek/.ssh
+chmod 600 /home/usrmixweek/.ssh/authorized_keys
+```
+
+Try again in the second window.
+
+**If you already closed the root window** and cannot get in at all: log in
+through your hosting provider's web console — called "Console", "VNC" or
+"Remote Access" in their control panel. That route does not go through SSH and
+still works. Then follow the steps above.
+
+### 17.4 No certificate / browser says not secure
+
+Check DNS still points here:
+
+```bash
+dig +short events.sunscript.tech
+```
+
+If that is right, read the certificate service's log:
+
+**[SERVER]**
+
+```bash
+cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml logs caddy | tail -40
+```
+
+Common causes:
+
+- **DNS wrong or not spread.** Fix, wait, then
+  `docker compose --env-file .env.production -f compose.production.yml restart caddy`
+- **Cloudflare's orange cloud is on.** Turn it grey (2.1), restart caddy.
+- **Rate limited.** Let's Encrypt allows five failures per hour per domain.
+  Retrying faster makes it worse. Wait an hour.
+
+### 17.5 The application keeps restarting
+
+**[SERVER]**
+
+```bash
+cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml logs --tail 60 app
+```
+
+Nearly always a missing or mistyped value in `.env.production`. The application
+checks its settings on startup and refuses to run with bad ones — the log names
+the offending setting.
+
+### 17.6 `git pull` says "Permission denied (publickey)" on the server
+
+Key C is not registered, or SSH is not using it. Check:
+
+```bash
+ssh -T git@github.com
+```
+
+Naming a different repository means another key is being offered — confirm
+`IdentitiesOnly yes` is in `~/.ssh/config` (10.4). `Permission denied` outright
+means the key is not on GitHub — repeat 10.3.
+
+### 17.7 Checking the state of everything
+
+**[SERVER]**
+
+```bash
+cd ~/app/deploy && docker compose --env-file .env.production -f compose.production.yml ps
+```
+
+Every row should read `running` or `healthy`, except `migrator`, which should
+read `exited (0)`. That one is meant to finish and stop.
+
+---
+
+## Part 18 — Honest limitations
+
+Worth knowing rather than discovering:
 
 - **This was never test-run end to end.** The scripts were written and checked
   for syntax on a machine without Docker, so the container images have never
-  actually been built. Expect to hit at least one snag on the first
-  `install-app.sh` and to fix it. Part 12 covers the likely ones.
+  been built. Expect at least one snag on the first `install-app.sh`. Part 17
+  covers the likely ones.
 - **Backups sit on the same server they protect.** That covers "someone deleted
   the wrong thing", not "the server is gone". Set `BACKUP_REMOTE` when you have
   somewhere to send them.
 - **A restore has never been rehearsed.** Do a practice restore soon, while
-  nothing depends on it. `./restore.sh` handles it, and takes a safety copy
+  nothing depends on it. `./restore.sh` handles it and takes a safety copy
   before overwriting anything.
 - **Uploads are stored on the server's own disk**, not in object storage. Fine
   at small scale; include the disk in whatever you back up.
-- **One server, no redundancy.** If it goes down, the site is down. That is a
-  reasonable place to start, but it is worth knowing rather than assuming
-  otherwise.
+- **One server, no redundancy.** If it goes down, the site is down. A
+  reasonable place to start, but know it rather than assume otherwise.
 
 ---
 
@@ -1061,25 +1248,31 @@ Print this, or keep it open in a tab.
 
 ```
 Website          https://events.sunscript.tech
+Repository       github.com/StebnykRo/mixweek-web   (private)
 Connect          ssh mixweek
-Working dir      ~/app/deploy
+Working dir      ~/app/deploy                        (on the server)
 Settings file    ~/app/deploy/.env.production
-Backups          ~/app/deploy/backups   (nightly 03:15 UTC, kept 30 days)
+Backups          ~/app/deploy/backups   nightly 03:15 UTC, kept 30 days
 
-Status           dc ps
-Logs             dc logs -f app
-Restart          dc restart app worker
-Publish change   git push origin main                          [from the Mac]
-Deploy it        ssh mixweek 'cd ~/app && git pull --ff-only && deploy/deploy.sh'
-What is live     git -C ~/app log --oneline -1                  [on the server]
+THE THREE KEYS
+  A  ~/.ssh/github_mixweek   Mac    -> GitHub   read + write
+  B  ~/.ssh/mixweek          Mac    -> server   login as usrmixweek
+  C  ~/.ssh/github_deploy    server -> GitHub   READ ONLY
 
-Repository       github.com/StebnykRo/mixweek-web  (private)
-Keys             ~/.ssh/mixweek         Mac  -> server
-                 ~/.ssh/github_mixweek  Mac  -> GitHub  (write)
-                 ~/.ssh/github_deploy   server -> GitHub  (read-only)
+EVERY DAY
+  Status         dc ps
+  Logs           dc logs -f app
+  Restart        dc restart app worker
 
-In the password manager, verify you have:
-  [ ] APP_MASTER_KEY
-  [ ] backups/age.key
-  [ ] SSH key passphrases (mixweek, github_mixweek)
+SHIPPING A CHANGE
+  1. git push origin main                                        [MAC]
+  2. ssh mixweek 'cd ~/app && git pull --ff-only && deploy/deploy.sh'
+  3. git -C ~/app log --oneline -1        confirms what is live  [SERVER]
+
+IN THE PASSWORD MANAGER, VERIFY YOU HAVE
+  [ ] APP_MASTER_KEY                 from .env.production
+  [ ] backups/age.key                all three lines
+  [ ] passphrase for key A           github_mixweek
+  [ ] passphrase for key B           mixweek
+  [ ] server root password           for the provider's web console
 ```
