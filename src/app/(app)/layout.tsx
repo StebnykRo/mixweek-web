@@ -29,15 +29,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const pathname = (await headers()).get('x-pathname') ?? '/events';
 
-  // The tab bar points at the current event when there is exactly one, so the
-  // common case does not cost an extra tap (docs/06 §3).
-  const activeEvent = await withTenant(tenantId, (db) =>
-    db.event.findFirst({
-      where: { status: 'PUBLISHED', endsAt: { gte: new Date() }, deletedAt: null },
-      orderBy: { startsAt: 'asc' },
-      select: { slug: true },
-    }),
-  );
+  /**
+   * Which event the tabs belong to.
+   *
+   * Whichever event is open wins. The tabs used to be built from the soonest
+   * upcoming event regardless of what was on screen, so opening a past event
+   * and tapping Map, WinStyle or Programme silently moved you to a different
+   * event — you could not look at last year's merchandise or floor plan at
+   * all. Only outside an event does it fall back to the soonest upcoming one,
+   * which is the case the original behaviour was written for (docs/06 §3).
+   */
+  const openSlug = /^\/events\/([^/?#]+)/.exec(pathname)?.[1];
+
+  const activeEvent = openSlug
+    ? await withTenant(tenantId, (db) =>
+        db.event.findFirst({ where: { slug: openSlug, deletedAt: null }, select: { slug: true } }),
+      )
+    : await withTenant(tenantId, (db) =>
+        db.event.findFirst({
+          where: { status: 'PUBLISHED', endsAt: { gte: new Date() }, deletedAt: null },
+          orderBy: { startsAt: 'asc' },
+          select: { slug: true },
+        }),
+      );
 
   const base = activeEvent ? `/events/${activeEvent.slug}` : '/events';
   const winstyleEnabled = await isFeatureEnabled('module.winstyle', { tenantId });
