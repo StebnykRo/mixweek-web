@@ -29,8 +29,17 @@ export function bindingHash(bindingValue: string): string {
  * Such a link carries no browser binding, so the six-digit code is always
  * demanded on arrival and the URL alone admits nobody — which is what makes a
  * longer window tolerable. Emailed links keep the ten-minute default.
+ *
+ * Ten days, raised from one, at the operator's request while there is no mail
+ * transport: without one, every sign-in needs someone with server access to
+ * mint a link by hand. The trade is real and worth naming — a link and its
+ * code together are a working credential for as long as they last, and they
+ * travel through whatever the two people used to send them. It stays one use,
+ * it can be cancelled by issuing another for the same address, and every issue
+ * is written to the audit log. Configuring mail is what makes this
+ * unnecessary.
  */
-export const MAX_TTL_MS = 24 * 60 * 60 * 1000;
+export const MAX_TTL_MS = 10 * 24 * 60 * 60 * 1000;
 
 export async function issueLoginTokens(
   identifier: string,
