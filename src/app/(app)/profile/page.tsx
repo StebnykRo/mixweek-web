@@ -21,7 +21,7 @@ import { getSession } from '@/lib/http/context';
 import { hasConfirmedTotp } from '@/modules/auth/totp';
 import { getTenant } from '@/modules/tenancy/service';
 import { PageHeader } from '@/components/patterns/page-header';
-import { initials } from '@/components/patterns/app-shell';
+import { initials } from '@/lib/initials';
 import { LocaleSwitcher } from '@/components/patterns/locale-switcher';
 import { SignOutButton } from '@/components/patterns/sign-out-button';
 import { HrContactCard } from '@/components/patterns/hr-contact-card';

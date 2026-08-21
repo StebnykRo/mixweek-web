@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Bell, CalendarDays, CalendarRange, Home, Map, ShoppingBag, User } from 'lucide-react';
 import { BrandLogo } from './brand-logo';
 import { cn } from '@/lib/cn';
+import { initials } from '@/lib/initials';
 
 export type NavItem = {
   /**
@@ -178,11 +179,6 @@ function UnreadDot({ count }: { count: number }) {
       {count > 99 ? '99+' : count}
     </span>
   );
-}
-
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p.charAt(0).toUpperCase()).join('') || '?';
 }
 
 function isActive(current: string, href: string, exact?: boolean): boolean {

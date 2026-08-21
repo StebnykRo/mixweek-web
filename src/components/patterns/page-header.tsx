@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Bell, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { initials } from './app-shell';
+import { initials } from '@/lib/initials';
 
 export type PageHeaderProps = {
   title: string;
