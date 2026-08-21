@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { headers } from 'next/headers';
 import {
   BookOpen,
+  Globe,
   BarChart3,
   Bell,
   CalendarDays,
@@ -40,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/notifications', label: 'Notifications', icon: <Bell size={18} />, action: 'notification:read' },
     { href: '/admin/media-reports', label: 'Media reports', icon: <ImageIcon size={18} />, action: 'media_report:read' },
     { href: '/admin/brands', label: 'Brands', icon: <Palette size={18} />, action: 'brand:read' },
+    { href: '/admin/domains', label: 'Domains', icon: <Globe size={18} />, action: 'tenant:read' },
     { href: '/admin/users', label: 'People', icon: <Users size={18} />, action: 'user:read' },
     { href: '/admin/insights', label: 'Insights', icon: <BarChart3 size={18} />, action: 'analytics:read' },
     { href: '/admin/feature-flags', label: 'Feature flags', icon: <Flag size={18} />, action: 'feature_flag:read' },

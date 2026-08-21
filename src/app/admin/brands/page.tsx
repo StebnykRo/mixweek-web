@@ -4,6 +4,8 @@ import { listBrands } from '@/modules/admin/brands';
 import { checkContrast } from '@/modules/branding/contrast';
 import { BrandTokensSchema } from '@/modules/branding/schemas';
 import { Badge } from '@/components/ui/badge';
+import { allows } from '@/modules/admin/guard';
+import { NewBrandButton } from '@/components/admin/new-brand-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Brands' };
@@ -14,7 +16,10 @@ export default async function AdminBrandsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="font-display text-2xl">Brands</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-display text-2xl">Brands</h1>
+        {allows(session, 'brand:write') ? <NewBrandButton /> : null}
+      </div>
       <ul className="grid gap-3 md:grid-cols-2">
         {brands.map((brand) => {
           const parsed = BrandTokensSchema.safeParse(brand.tokens);
