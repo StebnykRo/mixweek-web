@@ -30,6 +30,23 @@ function at(base: Date, dayOffset: number, hour: number, minute = 0): Date {
   return d;
 }
 
+/**
+ * Per-event wording so two events cannot be mistaken for each other.
+ *
+ * Every event used to receive the same six places, the same eleven sessions
+ * and the same four products, which made "am I looking at last year or this
+ * year?" impossible to answer from the screen — the only difference was the
+ * kicker above the title.
+ */
+type EventFlavour = {
+  /** Appended to place names, e.g. "Main Stage (Limassol 2026)". */
+  venueSuffix: string;
+  /** Distinguishes the programme. */
+  sessionSuffix: string;
+  /** Distinguishes the merchandise. */
+  merchSuffix: string;
+};
+
 type EventSpec = {
   slug: string;
   title: string;
@@ -42,6 +59,7 @@ type EventSpec = {
   withMerch: boolean;
   withAlbums: boolean;
   coverUrl: string;
+  flavour: EventFlavour;
 };
 
 const EVENTS: EventSpec[] = [
@@ -56,6 +74,7 @@ const EVENTS: EventSpec[] = [
     withMerch: true,
     withAlbums: true,
     coverUrl: '/demo/cover-mix-week.png',
+    flavour: { venueSuffix: 'Limassol 2026', sessionSuffix: '2026', merchSuffix: '2026' },
   },
   {
     slug: 'demo-winter-summit',
@@ -68,6 +87,7 @@ const EVENTS: EventSpec[] = [
     withMerch: false,
     withAlbums: false,
     coverUrl: '/demo/cover-winter-summit.png',
+    flavour: { venueSuffix: 'Kraków', sessionSuffix: 'Winter', merchSuffix: 'Winter' },
   },
   {
     slug: 'demo-mix-week-2025',
@@ -80,6 +100,7 @@ const EVENTS: EventSpec[] = [
     withMerch: true,
     withAlbums: true,
     coverUrl: '/demo/cover-mix-week-2025.png',
+    flavour: { venueSuffix: 'Limassol 2025', sessionSuffix: '2025', merchSuffix: '2025' },
   },
 ];
 
@@ -301,7 +322,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
       data: {
         tenantId,
         eventId: event.id,
-        name,
+        name: `${name} · ${spec.flavour.venueSuffix}`,
         kind,
         description,
         mapX,
@@ -313,7 +334,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
       },
       select: { id: true, name: true },
     });
-    places[place.name] = place.id;
+    places[name] = place.id;
   }
 
   for (const [index, [day, from, to, title, track, placeName, bookingRequired, capacity]] of PROGRAMME.entries()) {
@@ -321,7 +342,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
       data: {
         tenantId,
         eventId: event.id,
-        title,
+        title: `${title} · ${spec.flavour.sessionSuffix}`,
         description: 'Demo content — replace or delete freely.',
         track,
         startsAt: at(start, day, from),
@@ -389,7 +410,7 @@ async function buildEvent(tenantId: string, spec: EventSpec): Promise<string> {
           tenantId,
           eventId: event.id,
           sku,
-          name,
+          name: `${name} · ${spec.flavour.merchSuffix}`,
           description,
           priceCents,
           imageUrl: image,
