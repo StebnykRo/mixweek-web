@@ -1,10 +1,28 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Bell, CalendarDays, CalendarRange, Home, Map, ShoppingBag, User } from 'lucide-react';
 import { BrandLogo } from './brand-logo';
 import { cn } from '@/lib/cn';
 
 export type NavItem = {
-  href: string;
+  /**
+   * Absolute destination, for anything not tied to an event (/events,
+   * /profile). Event-scoped items use `suffix` instead.
+   */
+  href?: string;
+  /**
+   * Appended to whichever event is open — '' for its home, '/map' and so on.
+   *
+   * This exists because the shell is a shared layout, and a shared layout is
+   * not re-rendered when the route below it changes. Server-built hrefs were
+   * therefore fixed at whatever event was open when the layout last rendered:
+   * open a past event from the list and the tabs still pointed at the previous
+   * one, so Map and WinStyle quietly took you back to it. Resolving the slug
+   * here, from the live pathname, keeps the tabs on the event actually shown.
+   */
+  suffix?: string;
   label: string;
   icon: 'home' | 'programme' | 'map' | 'winstyle' | 'events' | 'profile';
   /**
@@ -29,8 +47,11 @@ export type AppShellProps = {
   children: React.ReactNode;
   brand: { appName: string; kicker: string | null; logoLightUrl: string | null; logoMarkUrl: string | null };
   nav: NavItem[];
-  secondaryNav?: Array<{ href: string; label: string; exact?: boolean }>;
+  secondaryNav?: Array<{ href?: string; suffix?: string; label: string; exact?: boolean }>;
+  /** Server-rendered fallback, used for the first paint and when outside an event. */
   activePath: string;
+  /** The event to fall back to when the URL names none. */
+  fallbackBase: string;
   unreadCount?: number;
   userLabel: string;
   notificationsLabel: string;
@@ -43,6 +64,7 @@ export type AppShellProps = {
  */
 export function AppShell({
   children,
+  fallbackBase,
   brand,
   nav,
   secondaryNav = [],
@@ -51,6 +73,13 @@ export function AppShell({
   userLabel,
   notificationsLabel,
 }: AppShellProps) {
+  // The live URL, so the tabs follow the event on screen even when this shared
+  // layout is not re-rendered. Falls back to the server value before hydration.
+  const livePath = usePathname() ?? activePath;
+  const openBase = /^\/events\/[^/?#]+/.exec(livePath)?.[0] ?? fallbackBase;
+  const resolve = (item: { href?: string; suffix?: string }): string =>
+    item.suffix !== undefined ? `${openBase}${item.suffix}` : (item.href ?? '/events');
+
   return (
     <div className="min-h-dvh lg:flex">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-divider bg-surface px-4 py-6 lg:flex lg:sticky lg:top-0 lg:h-dvh">
@@ -58,11 +87,12 @@ export function AppShell({
         <nav aria-label="Main" className="mt-8 flex flex-1 flex-col gap-1">
           {nav.map((item) => {
             const Icon = ICONS[item.icon];
-            const active = isActive(activePath, item.href, item.exact);
+            const href = resolve(item);
+            const active = isActive(livePath, href, item.exact);
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold',
@@ -78,9 +108,9 @@ export function AppShell({
             <div className="mt-4 border-t border-divider pt-4">
               {secondaryNav.map((item) => (
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={isActive(activePath, item.href, item.exact) ? 'page' : undefined}
+                  key={item.label}
+                  href={resolve(item)}
+                  aria-current={isActive(livePath, resolve(item), item.exact) ? 'page' : undefined}
                   className="flex h-11 items-center rounded-md px-3 text-sm text-ink-muted hover:bg-neutral-200"
                 >
                   {item.label}
@@ -119,11 +149,12 @@ export function AppShell({
         >
           {nav.map((item) => {
             const Icon = ICONS[item.icon];
-            const active = isActive(activePath, item.href, item.exact);
+            const href = resolve(item);
+            const active = isActive(livePath, href, item.exact);
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={href}
+                href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-semibold',

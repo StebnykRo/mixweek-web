@@ -56,12 +56,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const base = activeEvent ? `/events/${activeEvent.slug}` : '/events';
   const winstyleEnabled = await isFeatureEnabled('module.winstyle', { tenantId });
 
+  // Suffixes rather than finished paths: the shell resolves them against the
+  // event in the URL, because this layout is not re-rendered when the route
+  // below it changes to a different event.
   const nav: NavItem[] = [
     // exact: everything else on the event sits under this path.
-    { href: base, label: t('home'), icon: 'home', exact: true },
-    { href: `${base}/programme`, label: t('programme'), icon: 'programme' },
-    { href: `${base}/map`, label: t('map'), icon: 'map' },
-    ...(winstyleEnabled ? [{ href: `${base}/winstyle`, label: t('winstyle'), icon: 'winstyle' as const }] : []),
+    { suffix: '', label: t('home'), icon: 'home', exact: true },
+    { suffix: '/programme', label: t('programme'), icon: 'programme' },
+    { suffix: '/map', label: t('map'), icon: 'map' },
+    ...(winstyleEnabled ? [{ suffix: '/winstyle', label: t('winstyle'), icon: 'winstyle' as const }] : []),
     // Switch event, register for another, or look back at a past one. Profile
     // is not here: the avatar in the top-right corner already goes there, and
     // repeating it would cost a tab slot for nothing.
@@ -71,11 +74,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Desktop sidebar only. Everything here is also reachable from the profile,
   // which is where people look for it on a phone.
   const secondaryNav = [
-    { href: `${base}/my`, label: t('myProgramme') },
-    { href: `${base}/style`, label: t('style') },
-    { href: `${base}/travel`, label: t('travel') },
-    { href: `${base}/media`, label: t('media') },
-    { href: `${base}/help`, label: t('help') },
+    { suffix: '/my', label: t('myProgramme') },
+    { suffix: '/style', label: t('style') },
+    { suffix: '/travel', label: t('travel') },
+    { suffix: '/media', label: t('media') },
+    { suffix: '/help', label: t('help') },
   ];
 
   return (
@@ -84,6 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       nav={nav}
       secondaryNav={secondaryNav}
       activePath={pathname}
+      fallbackBase={base}
       unreadCount={unread}
       userLabel={session.user.name ?? session.user.email}
       notificationsLabel={t('notifications')}
