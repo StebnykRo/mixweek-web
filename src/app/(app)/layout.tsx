@@ -65,7 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // Switch event, register for another, or look back at a past one. Profile
     // is not here: the avatar in the top-right corner already goes there, and
     // repeating it would cost a tab slot for nothing.
-    { href: '/events', label: t('events'), icon: 'events' as const, exact: true },
+    { href: '/events?stay=1', label: t('events'), icon: 'events' as const, exact: true },
   ];
 
   // Desktop sidebar only. Everything here is also reachable from the profile,

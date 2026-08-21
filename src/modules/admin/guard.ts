@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/http/context';
-import { can, hasPermission, type Action } from '@/modules/auth/policies';
+import { can, hasPermission, requiresStepUp, stepUpSatisfied, type Action } from '@/modules/auth/policies';
 import type { SessionContext } from '@/modules/auth/session';
 
 /**
@@ -24,8 +24,28 @@ export async function requireAdminSession(): Promise<AdminSession> {
 
 export async function requirePermission(action: Action): Promise<AdminSession> {
   const session = await requireAdminSession();
+
+  /**
+   * Two different refusals, which used to look identical.
+   *
+   * No permission stays a 404, deliberately: someone who cannot use a section
+   * should not learn it exists. But a sensitive section such as Secrets also
+   * needs a second factor confirmed in the last fifteen minutes, and when only
+   * that had lapsed the page still claimed not to exist — to a person who does
+   * have the permission and was there minutes earlier. That is a dead end
+   * rather than a prompt, so it is now a step-up instead.
+   */
+  const allowed = hasPermission(session.role, action);
+  const needsStepUp = allowed && requiresStepUp(action) && !stepUpSatisfied(session);
+
+  if (needsStepUp) {
+    const { redirect } = await import('next/navigation');
+    const { headers } = await import('next/headers');
+    const back = (await headers()).get('x-pathname') ?? '/admin';
+    redirect(`/admin/step-up?next=${encodeURIComponent(back)}`);
+  }
+
   if (!can(session, action, { tenantId: session.tenantId })) {
-    // Same treatment as the API: no hint that the section exists.
     const { notFound } = await import('next/navigation');
     notFound();
   }

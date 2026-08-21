@@ -155,6 +155,10 @@ export function initials(name: string): string {
 }
 
 function isActive(current: string, href: string, exact?: boolean): boolean {
-  if (exact || href === '/events') return current === href;
-  return current === href || current.startsWith(`${href}/`);
+  // Compare paths only: the Events tab carries ?stay=1 so that tapping it
+  // shows the list rather than bouncing into a live event, and the query
+  // string must not stop the tab looking selected.
+  const path = href.split('?')[0] ?? href;
+  if (exact || path === '/events') return current === path;
+  return current === path || current.startsWith(`${path}/`);
 }

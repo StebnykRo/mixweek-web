@@ -25,7 +25,7 @@ const DomainSchema = z.strictObject({
 
 /** GET /api/v1/admin/domains */
 export const GET = route(
-  { auth: { mode: 'permission', action: 'tenant:read' }, limit: 'admin.mutation', personal: true },
+  { auth: { mode: 'permission', action: 'setting:read' }, limit: 'admin.mutation', personal: true },
   async ({ session }) => {
     const items = await withTenant(session.tenantId as string, (db) =>
       db.tenantDomain.findMany({
@@ -57,7 +57,7 @@ export const GET = route(
  */
 export const POST = route(
   {
-    auth: { mode: 'permission', action: 'tenant:write' },
+    auth: { mode: 'permission', action: 'setting:write' },
     limit: 'admin.mutation',
     body: DomainSchema,
     personal: true,

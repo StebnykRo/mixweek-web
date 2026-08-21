@@ -11,7 +11,7 @@
  * not leak one person's schedule to the next.
  */
 
-const VERSION = 'mw-v1';
+const VERSION = 'mw-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const CONTENT_CACHE = `${VERSION}-content`;
 const CONTENT_TTL_MS = 24 * 60 * 60 * 1000;

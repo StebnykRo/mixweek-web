@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  */
 export const DELETE = route(
   {
-    auth: { mode: 'permission', action: 'tenant:delete' },
+    auth: { mode: 'permission', action: 'setting:write' },
     limit: 'admin.mutation',
     personal: true,
     mutates: true,

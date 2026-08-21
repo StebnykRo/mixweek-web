@@ -8,7 +8,7 @@ export const metadata = { title: 'Domains' };
 
 /** docs/04-white-label.md §2 — which addresses reach this tenant, and under which brand. */
 export default async function AdminDomainsPage() {
-  const session = await requirePermission('tenant:read');
+  const session = await requirePermission('setting:read');
 
   const [domains, brands] = await Promise.all([
     withTenant(session.tenantId, (db) =>
@@ -24,7 +24,7 @@ export default async function AdminDomainsPage() {
     <DomainsPanel
       domains={domains as DomainRow[]}
       brands={brands.map((brand) => ({ id: brand.id, name: brand.name }))}
-      canWrite={allows(session, 'tenant:write')}
+      canWrite={allows(session, 'setting:write')}
     />
   );
 }
