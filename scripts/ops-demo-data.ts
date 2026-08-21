@@ -1,5 +1,4 @@
 import { PrismaClient, type Track, type PlaceKind } from '@prisma/client';
-import { DESIGN_TOKENS } from '../src/modules/branding/design-brand';
 
 /**
  * `pnpm ops:demo-data --tenant=<slug> [--reset]`
@@ -445,19 +444,6 @@ async function main() {
     });
     console.log(`Removed ${removed.count} demo event(s) from ${tenant.slug}.`);
     return;
-  }
-
-  // The tenant's default brand takes the prototype's palette, so the demo
-  // shows the design rather than the platform's fallback blue.
-  const defaultBrand = await prisma.brand.findFirst({
-    where: { tenantId: tenant.id, isDefault: true },
-    select: { id: true },
-  });
-  if (defaultBrand) {
-    await prisma.brand.update({
-      where: { id: defaultBrand.id },
-      data: { tokens: DESIGN_TOKENS as never, status: 'PUBLISHED', publishedAt: new Date() },
-    });
   }
 
   const built: string[] = [];
